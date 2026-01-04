@@ -1,5 +1,4 @@
 """ Schémas pydantic (input / output API) """
-from typing import Optional
 from pydantic import BaseModel
 from datetime import date
 
@@ -8,13 +7,21 @@ class Create_vehicule(BaseModel):
     plate: str
     model: str
     km: int
-    buy_date: Optional[date] = None
-    first_registration_date: Optional[date] = None
+    buy_date: date | None = None
+    first_registration_date: date | None = None
 
 # Modification des infos d'un véhicule
 class Update_vehicule(BaseModel):
-    plate: Optional[str] = None
-    model: Optional[str] = None
-    km: Optional[int] = None
-    buy_date: Optional[date] = None
-    first_registration_date: Optional[date] = None
+    plate: str | None = None
+    model: str | None = None
+    km: int | None = None
+    buy_date: date | None = None
+    first_registration_date: date | None = None
+
+# Creation d'un entretien de véhicule
+class Create_entretien(BaseModel):
+    date: date
+    km: int
+    type: str
+    cost: float | None = None
+    comment: str | None = None

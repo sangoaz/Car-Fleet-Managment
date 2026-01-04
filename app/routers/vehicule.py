@@ -88,3 +88,4 @@ def delete_vehicule(
     session.delete(existing_vehicule)
     session.commit()
     return {"message": f"Vehicule {vehicule_id} supprimé"}
+

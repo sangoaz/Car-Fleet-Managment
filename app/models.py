@@ -34,4 +34,5 @@ class Entretien(SQLModel, table=True):
 # Table des incidents
 
 
+
 # Table des réparations
