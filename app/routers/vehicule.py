@@ -3,10 +3,12 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlmodel import select, func, Session
 from typing import Optional
+from sqlalchemy import desc
 
 from app.database import get_session
-from app.models import Vehicule
-from app.schemas import Create_vehicule, Update_vehicule
+from app.enums import EntretienType
+from app.models import Vehicule, Entretien
+from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
 
 router = APIRouter(
     prefix="/vehicules",
@@ -89,3 +91,39 @@ def delete_vehicule(
     session.commit()
     return {"message": f"Vehicule {vehicule_id} supprimé"}
 
+# Overview d'un véhicule
+@router.get("/{vehicule_id}/overview", response_model=VehiculeOverviewResponse)
+def vehicule_overview(
+    vehicule_id: int,
+    session: Session = Depends(get_session)
+):
+    vehicule = session.get(Vehicule,vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404, detail="Vehicule introuvable")
+    
+    # Derniers entretiens (tous types)
+    stmt_entretiens = (
+        select(Entretien)
+        .where(Entretien.vehicule_id == vehicule_id)
+        .order_by(desc(Entretien.date))
+        .limit(5)
+    )
+    last_entretien = session.scalars(stmt_entretiens).all()
+
+    # Dernier contrôle technique
+    stmt_ct = (
+        select(Entretien)
+        .where(
+            Entretien.vehicule_id == vehicule_id,
+            Entretien.type == EntretienType.CONTROLE_TECHNIQUE
+        )
+        .order_by(desc(Entretien.date))
+        .limit(1)
+    )
+    last_ct = session.scalars(stmt_ct).first()
+
+    return{
+        "vehicule": vehicule,
+        "last_entretiens": last_entretien,
+        "last_controle_technique": last_ct
+    }

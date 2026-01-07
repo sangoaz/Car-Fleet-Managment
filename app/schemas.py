@@ -1,6 +1,8 @@
 """ Schémas pydantic (input / output API) """
 from pydantic import BaseModel
 from datetime import date
+from typing import List, Optional
+from app.enums import EntretienType
 
 # Creation d'un véhicule
 class Create_vehicule(BaseModel):
@@ -25,3 +27,25 @@ class Create_entretien(BaseModel):
     type: str
     cost: float | None = None
     comment: str | None = None
+
+
+class EntretienOverview(BaseModel):
+    id: int
+    date: date
+    km: int
+    type: EntretienType
+    cost: float | None = None
+    comment: str | None = None
+
+
+class VehiculeOverview(BaseModel):
+    id: int
+    plate: str
+    model: str
+    km: int
+
+
+class VehiculeOverviewResponse(BaseModel):
+    vehicule: VehiculeOverview
+    last_entretiens: List[EntretienOverview]
+    last_controle_technique: Optional[EntretienOverview]

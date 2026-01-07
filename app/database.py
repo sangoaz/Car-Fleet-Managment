@@ -1,8 +1,17 @@
-from sqlmodel import SQLModel, create_engine, Session
+import os
 from typing import Generator
 
-DATABASE_URL = "postgresql://fleet_user:fleet_password@localhost:5432/fleet_db"
+from sqlmodel import SQLModel, create_engine, Session
+from dotenv import load_dotenv
 
+# Charge le fichier .env
+load_dotenv()
+
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set. Check your environment variables.")
 
 engine = create_engine(
     DATABASE_URL,
