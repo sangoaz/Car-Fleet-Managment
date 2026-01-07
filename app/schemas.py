@@ -28,7 +28,7 @@ class Create_entretien(BaseModel):
     cost: float | None = None
     comment: str | None = None
 
-
+# Affichage d'un entretien
 class EntretienOverview(BaseModel):
     id: int
     date: date
@@ -37,14 +37,14 @@ class EntretienOverview(BaseModel):
     cost: float | None = None
     comment: str | None = None
 
-
+# Affichage d'un véhicule
 class VehiculeOverview(BaseModel):
     id: int
     plate: str
     model: str
     km: int
 
-
+# Affichage de l'overview du véhicule
 class VehiculeOverviewResponse(BaseModel):
     vehicule: VehiculeOverview
     last_entretiens: List[EntretienOverview]
