@@ -3,8 +3,8 @@
 from enum import Enum
 
 class EntretienType(str, Enum):
-    VIDANGE = "Vidange"
-    PNEUS = "Pneus"
-    FREINS = "Freins"
-    REVISION = "Révision"
-    CONTROLE_TECHNIQUE = "Contrôle technique"
+    VIDANGE = "VIDANGE"
+    PNEUS = "PNEUS"
+    FREINS = "FREINS"
+    REVISION = "REVISION"
+    CONTROLE_TECHNIQUE = "CONTROLE_TECHNIQUE"

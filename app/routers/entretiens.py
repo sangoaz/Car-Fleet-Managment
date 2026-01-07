@@ -1,12 +1,13 @@
 """ Routes relatives aux entretiens des véhicules """
 
 from fastapi import APIRouter, HTTPException, Query, Depends
-from sqlmodel import select, func, Session
+from sqlmodel import select, func, Session, desc
 from typing import Optional
 
 from app.database import get_session
 from app.models import Entretien, Vehicule
 from app.schemas import Create_entretien
+from app.enums import EntretienType
 
 router = APIRouter(
     prefix="/vehicules",
@@ -43,6 +44,14 @@ def create_entretien(
 def get_entretiens(
     vehicule_id: int,
     session: Session = Depends(get_session), 
+
+    entretien_type: Optional[EntretienType] = Query(
+        None,
+        description="Type d'entretien"
+    ),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    order: str = Query("date_desc")
 ):
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
@@ -51,4 +60,21 @@ def get_entretiens(
             detail="Véhicule introuvable"
         )
     
-    return vehicule.entretiens
+    stmt = select(Entretien).where(Entretien.vehicule_id == vehicule_id)
+
+    # Filtre par Enum
+    if entretien_type:
+        stmt = stmt.where(Entretien.type == entretien_type)
+
+    # Tri
+    if order == "date_asc":
+        stmt = stmt.order_by(Entretien.date)
+    else:
+        stmt = stmt.order_by(desc(Entretien.date))
+
+    # Pagination
+    stmt = stmt.offset(offset).limit(limit)
+
+    entretiens = session.scalars(stmt).all()
+    
+    return entretiens  # Ex d'url: vehicules/2/entretiens?entretien_type=CONTROLE_TECHNIQUE

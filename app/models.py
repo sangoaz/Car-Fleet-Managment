@@ -3,6 +3,8 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import date
 from typing import List, Optional
 
+from app.enums import EntretienType
+
 
 # Table des Véhicules
 class Vehicule(SQLModel, table=True):
@@ -26,7 +28,7 @@ class Entretien(SQLModel, table=True):
 
     date: date
     km: int
-    type: str           # Vidange / Pneus / CT, etc...
+    type: EntretienType           # Vidange / Pneus / CT, etc...
     cost: float | None = None
     comment: str | None = None
 
