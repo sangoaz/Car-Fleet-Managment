@@ -1,4 +1,4 @@
-""" Routes relatives aux véhicules """
+"""Routes relatives aux véhicules"""
 
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlmodel import select, func, Session
@@ -10,23 +10,22 @@ from app.enums import EntretienType
 from app.models import Vehicule, Entretien
 from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
 
-router = APIRouter(
-    prefix="/vehicules",
-    tags=["Vehicules"]
-)
+router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
+
 
 # Enregistrer un nouveau véhicule
 @router.post("/", status_code=201)
-def create_vehicule(vehicule: Create_vehicule,
-                    session: Session = Depends(get_session),
+def create_vehicule(
+    vehicule: Create_vehicule,
+    session: Session = Depends(get_session),
 ):
     new_vehicule = Vehicule(
         plate=vehicule.plate,
         model=vehicule.model,
         km=vehicule.km,
         buy_date=vehicule.buy_date,
-        first_registration_date=vehicule.first_registration_date
-        )
+        first_registration_date=vehicule.first_registration_date,
+    )
     session.add(new_vehicule)
     session.commit()
     session.refresh(new_vehicule)
@@ -41,10 +40,7 @@ def get_vehicule(
 ):
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
-        raise HTTPException(
-            status_code=404,
-            detail="Véhicule introuvable"
-        )
+        raise HTTPException(status_code=404, detail="Véhicule introuvable")
     return vehicule
 
 
@@ -77,6 +73,7 @@ def patch_vehicule(
     session.refresh(existing_vehicule)
     return existing_vehicule
 
+
 # Supprimer un véhicule
 @router.delete("/{vehicule_id}")
 def delete_vehicule(
@@ -87,20 +84,26 @@ def delete_vehicule(
     if not existing_vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
+    if existing_vehicule.entretiens:
+        raise HTTPException(
+            status_code=400,
+            detail="Impossible de supprimer un véhicule avec des entretiens",
+        )
+
     session.delete(existing_vehicule)
     session.commit()
     return {"message": f"Vehicule {vehicule_id} supprimé"}
 
+
 # Overview d'un véhicule
 @router.get("/{vehicule_id}/overview", response_model=VehiculeOverviewResponse)
-def vehicule_overview(
-    vehicule_id: int,
-    session: Session = Depends(get_session)
-):
-    vehicule = session.get(Vehicule,vehicule_id)
+def vehicule_overview(vehicule_id: int, session: Session = Depends(get_session)):
+
+    # Vérifier si le véhicule existe
+    vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Vehicule introuvable")
-    
+
     # Derniers entretiens (tous types)
     stmt_entretiens = (
         select(Entretien)
@@ -115,15 +118,15 @@ def vehicule_overview(
         select(Entretien)
         .where(
             Entretien.vehicule_id == vehicule_id,
-            Entretien.type == EntretienType.CONTROLE_TECHNIQUE
+            Entretien.type == EntretienType.CONTROLE_TECHNIQUE,
         )
         .order_by(desc(Entretien.date))
         .limit(1)
     )
     last_ct = session.scalars(stmt_ct).first()
 
-    return{
+    return {
         "vehicule": vehicule,
         "last_entretiens": last_entretien,
-        "last_controle_technique": last_ct
+        "last_controle_technique": last_ct,
     }
