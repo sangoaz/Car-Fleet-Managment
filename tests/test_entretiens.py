@@ -124,3 +124,169 @@ def test_get_entretiens_vehicule_not_found(client):
 
     assert res.status_code == 404
     assert res.json()["detail"] == "Véhicule introuvable"
+
+
+def test_create_entretien_updates_vehicle_km(client):
+    # Création du véhicule
+    res = client.post(
+        "/vehicules",
+        json={"plate": "KM-001", "model": "Test KM", "km": 50000},
+    )
+    vehicule_id = res.json()["id"]
+
+    # Création d’un entretien avec un km supérieur
+    client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 55000,
+            "type": "VIDANGE",
+        },
+    )
+
+    # Vérifier que le km du véhicule a été mis à jour
+    res = client.get(f"/vehicules/{vehicule_id}")
+    assert res.status_code == 200
+    assert res.json()["km"] == 55000
+
+
+def test_create_entretien_does_not_lower_vehicle_km(client):
+    res = client.post(
+        "/vehicules",
+        json={"plate": "KM-002", "model": "No Lower", "km": 50000},
+    )
+    vehicule_id = res.json()["id"]
+
+    # Entretien historique
+    client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2024-01-01",
+            "km": 40000,
+            "type": "VIDANGE",
+        },
+    )
+
+    res = client.get(f"/vehicules/{vehicule_id}")
+    assert res.json()["km"] == 50000
+
+
+def test_patch_entretien_updates_vehicle_km(client):
+    # Création du véhicule
+    res = client.post(
+        "/vehicules",
+        json={"plate": "PATCH-002", "model": "Patch KM", "km": 50000},
+    )
+    vehicule_id = res.json()["id"]
+
+    # Création entretien initial
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 45000,
+            "type": "VIDANGE",
+        },
+    )
+    entretien_id = res.json()["id"]
+
+    # PATCH avec km supérieur
+    client.patch(
+        f"/vehicules/{vehicule_id}/entretiens/{entretien_id}",
+        json={"km": 60000},
+    )
+
+    # Le km du véhicule DOIT être mis à jour
+    res = client.get(f"/vehicules/{vehicule_id}")
+    assert res.json()["km"] == 60000
+
+
+def test_patch_entretien_does_not_decrease_vehicle_km(client):
+    res = client.post(
+        "/vehicules",
+        json={"plate": "PATCH-003", "model": "No Decrease", "km": 60000},
+    )
+    vehicule_id = res.json()["id"]
+
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 60000,
+            "type": "VIDANGE",
+        },
+    )
+    entretien_id = res.json()["id"]
+
+    client.patch(
+        f"/vehicules/{vehicule_id}/entretiens/{entretien_id}",
+        json={"km": 40000},
+    )
+
+    res = client.get(f"/vehicules/{vehicule_id}")
+    assert res.json()["km"] == 60000
+
+
+def test_patch_entretien_does_not_decrease_vehicle_km(client):
+    res = client.post(
+        "/vehicules",
+        json={"plate": "PATCH-003", "model": "No Decrease", "km": 60000},
+    )
+    vehicule_id = res.json()["id"]
+
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 60000,
+            "type": "VIDANGE",
+        },
+    )
+    entretien_id = res.json()["id"]
+
+    client.patch(
+        f"/vehicules/{vehicule_id}/entretiens/{entretien_id}",
+        json={"km": 40000},
+    )
+
+    res = client.get(f"/vehicules/{vehicule_id}")
+    assert res.json()["km"] == 60000
+
+
+def test_patch_entretien_basic_fields(client):
+    # Création véhicule
+    res = client.post(
+        "/vehicules",
+        json={"plate": "PATCH-BASIC", "model": "Basic Patch", "km": 50000},
+    )
+    vehicule_id = res.json()["id"]
+
+    # Création entretien
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 45000,
+            "type": "VIDANGE",
+            "cost": 100,
+        },
+    )
+    entretien_id = res.json()["id"]
+
+    # PATCH sans km
+    res = client.patch(
+        f"/vehicules/{vehicule_id}/entretiens/{entretien_id}",
+        json={
+            "comment": "Entretien modifié",
+            "cost": 120,
+        },
+    )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["comment"] == "Entretien modifié"
+    assert data["cost"] == 120
+
+    # Le km du véhicule ne change PAS
+    res = client.get(f"/vehicules/{vehicule_id}")
+    assert res.json()["km"] == 50000

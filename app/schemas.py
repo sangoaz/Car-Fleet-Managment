@@ -1,7 +1,7 @@
 """Schémas pydantic (input / output API)"""
 
 from pydantic import BaseModel, ConfigDict
-from datetime import date
+from datetime import date as Date
 from typing import List, Optional
 from app.enums import EntretienType
 
@@ -16,8 +16,8 @@ class Create_vehicule(BaseModel):
     plate: str
     model: str
     km: int
-    buy_date: date | None = None
-    first_registration_date: date | None = None
+    buy_date: Date | None = None
+    first_registration_date: Date | None = None
 
 
 # Modification des infos d'un véhicule
@@ -25,8 +25,8 @@ class Update_vehicule(BaseModel):
     plate: str | None = None
     model: str | None = None
     km: int | None = None
-    buy_date: date | None = None
-    first_registration_date: date | None = None
+    buy_date: Date | None = None
+    first_registration_date: Date | None = None
 
 
 class VehiculeRead(BaseModel):
@@ -45,7 +45,7 @@ class VehiculeRead(BaseModel):
 
 # Creation d'un entretien de véhicule
 class Create_entretien(BaseModel):
-    date: date
+    date: Date
     km: int
     type: EntretienType
     cost: float | None = None
@@ -54,13 +54,22 @@ class Create_entretien(BaseModel):
 
 class EntretienRead(BaseModel):
     id: int
-    date: date
+    date: Date
     km: int
     type: EntretienType
     cost: float | None = None
     comment: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Modification des infos d'un entretien
+class Update_entretien(BaseModel):
+    date: Date | None = None
+    km: int | None = None
+    type: EntretienType | None = None
+    cost: float | None = None
+    comment: str | None = None
 
 
 # =========================
@@ -81,7 +90,7 @@ class PaginatedEntretiens(BaseModel):
 # Affichage d'un entretien
 class EntretienOverview(BaseModel):
     id: int
-    date: date
+    date: Date
     km: int
     type: EntretienType
     cost: float | None = None
@@ -100,8 +109,15 @@ class VehiculeOverview(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EntretienIssue(BaseModel):
+    type: EntretienType
+    issue: str
+    details: str
+
+
 # Affichage de l'overview du véhicule
 class VehiculeOverviewResponse(BaseModel):
     vehicule: VehiculeOverview
     last_entretiens: List[EntretienOverview]
     last_controle_technique: Optional[EntretienOverview]
+    issues: List[EntretienIssue] = []
