@@ -227,32 +227,6 @@ def test_patch_entretien_does_not_decrease_vehicle_km(client):
     assert res.json()["km"] == 60000
 
 
-def test_patch_entretien_does_not_decrease_vehicle_km(client):
-    res = client.post(
-        "/vehicules",
-        json={"plate": "PATCH-003", "model": "No Decrease", "km": 60000},
-    )
-    vehicule_id = res.json()["id"]
-
-    res = client.post(
-        f"/vehicules/{vehicule_id}/entretiens",
-        json={
-            "date": "2025-01-01",
-            "km": 60000,
-            "type": "VIDANGE",
-        },
-    )
-    entretien_id = res.json()["id"]
-
-    client.patch(
-        f"/vehicules/{vehicule_id}/entretiens/{entretien_id}",
-        json={"km": 40000},
-    )
-
-    res = client.get(f"/vehicules/{vehicule_id}")
-    assert res.json()["km"] == 60000
-
-
 def test_patch_entretien_basic_fields(client):
     # Création véhicule
     res = client.post(
