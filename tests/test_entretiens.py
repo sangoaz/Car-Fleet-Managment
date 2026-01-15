@@ -264,3 +264,132 @@ def test_patch_entretien_basic_fields(client):
     # Le km du véhicule ne change PAS
     res = client.get(f"/vehicules/{vehicule_id}")
     assert res.json()["km"] == 50000
+
+
+def test_cannot_create_entretien_with_lower_km_in_future(client):
+    res = client.post(
+        "/vehicules",
+        json={"plate": "RULE-001", "model": "Rules", "km": 60000},
+    )
+    vehicule_id = res.json()["id"]
+
+    # Vidange valide
+    client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 50000,
+            "type": "VIDANGE",
+        },
+    )
+
+    # Vidange incohérente (future mais km plus bas)
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2026-01-01",
+            "km": 40000,
+            "type": "VIDANGE",
+        },
+    )
+
+    assert res.status_code == 422
+
+
+def test_cannot_create_entretien_with_higher_km_in_past(client):
+    res = client.post(
+        "/vehicules",
+        json={"plate": "RULE-002", "model": "Rules", "km": 60000},
+    )
+    vehicule_id = res.json()["id"]
+
+    client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 50000,
+            "type": "VIDANGE",
+        },
+    )
+
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2024-01-01",
+            "km": 60000,
+            "type": "VIDANGE",
+        },
+    )
+
+    assert res.status_code == 422
+
+
+def test_can_create_entretien_history(client):
+    res = client.post(
+        "/vehicules",
+        json={"plate": "RULE-003", "model": "Rules", "km": 60000},
+    )
+    vehicule_id = res.json()["id"]
+
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2024-01-01",
+            "km": 40000,
+            "type": "VIDANGE",
+        },
+    )
+
+    assert res.status_code == 201
+
+
+def test_delete_entretien_ok(client):
+    res = client.post(
+        "/vehicules",
+        json={"plate": "DEL-E-001", "model": "Delete Entretien", "km": 50000},
+    )
+    vehicule_id = res.json()["id"]
+
+    res = client.post(
+        f"/vehicules/{vehicule_id}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 40000,
+            "type": "VIDANGE",
+        },
+    )
+    entretien_id = res.json()["id"]
+
+    res = client.delete(f"/vehicules/{vehicule_id}/entretiens/{entretien_id}")
+
+    assert res.status_code == 204
+
+
+def test_delete_entretien_not_found(client):
+    res = client.delete("/vehicules/1/entretiens/999")
+    assert res.status_code == 404
+
+
+def test_delete_entretien_wrong_vehicle(client):
+    v1 = client.post(
+        "/vehicules",
+        json={"plate": "DEL-A", "model": "A", "km": 10000},
+    ).json()["id"]
+
+    v2 = client.post(
+        "/vehicules",
+        json={"plate": "DEL-B", "model": "B", "km": 10000},
+    ).json()["id"]
+
+    entretien_id = client.post(
+        f"/vehicules/{v1}/entretiens",
+        json={
+            "date": "2025-01-01",
+            "km": 9000,
+            "type": "VIDANGE",
+        },
+    ).json()["id"]
+
+    res = client.delete(f"/vehicules/{v2}/entretiens/{entretien_id}")
+
+    assert res.status_code == 404

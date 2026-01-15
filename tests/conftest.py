@@ -41,3 +41,19 @@ def client():
         yield client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def session():
+    # DB SQLite isolée PAR TEST
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False,
+    )
+
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        yield session

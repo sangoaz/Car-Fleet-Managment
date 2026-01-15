@@ -9,6 +9,7 @@ from app.database import get_session
 from app.enums import EntretienType
 from app.models import Vehicule, Entretien
 from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
+from app.services.alerts import get_vehicle_alerts
 
 router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
 
@@ -42,6 +43,19 @@ def get_vehicule(
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
     return vehicule
+
+
+# Afficher toutes les alertes d'un véhicule
+@router.get("/{vehicule_id}/alerts")
+def get_vehicule_alerts(
+    vehicule_id: int,
+    session: Session = Depends(get_session),
+):
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    return get_vehicle_alerts(session, vehicule)
 
 
 # Afficher la liste des véhicules

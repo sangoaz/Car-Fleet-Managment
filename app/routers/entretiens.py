@@ -9,6 +9,7 @@ from app.database import get_session
 from app.models import Entretien, Vehicule
 from app.schemas import Create_entretien, PaginatedEntretiens, Update_entretien
 from app.enums import EntretienType
+from app.services.entretien_validation import validate_entretien_coherence
 
 router = APIRouter(prefix="/vehicules", tags=["entretiens"])
 
@@ -24,6 +25,15 @@ def create_entretien(
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    # Validation métier date ↔ km (même type)
+    validate_entretien_coherence(
+        session,
+        vehicule_id,
+        entretien.type,
+        entretien.date,
+        entretien.km,
+    )
 
     # Creer l'entretien
     new_entretien = Entretien(**entretien.model_dump(), vehicule_id=vehicule_id)
@@ -83,7 +93,6 @@ def get_entretiens(
     return {"total_count": total_count, "items": items}
 
 
-# Modifier l'entretien d'un véhicule
 @router.patch("/{vehicule_id}/entretiens/{entretien_id}")
 def patch_entretien(
     vehicule_id: int,
@@ -91,41 +100,89 @@ def patch_entretien(
     entretien: Update_entretien,
     session: Session = Depends(get_session),
 ):
-    # Vérifier si le véhicule existe
-    existing_vehicule = session.get(Vehicule, vehicule_id)
-    if not existing_vehicule:
+    # Vérifier véhicule
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
-    # Vérifier si l'entretien existe
+    # Vérifier entretien
     existing_entretien = session.get(Entretien, entretien_id)
     if not existing_entretien:
         raise HTTPException(status_code=404, detail="Entretien introuvable")
 
-    # Vérifier si l'entretien appartient au véhicule
     if existing_entretien.vehicule_id != vehicule_id:
         raise HTTPException(
             status_code=404,
             detail="Cet entretien n'appartient pas à ce véhicule",
         )
 
-    # Modification des infos
-    if entretien.date is not None:
-        existing_entretien.date = entretien.date
-    if entretien.km is not None:
-        if entretien.km <= 0:
-            raise HTTPException(status_code=400, detail="kilométrage invalide")
-        existing_entretien.km = entretien.km
-        # Si le kmage de l'entretien est plus élevé que le kmage du véhicule, le met à jour dans la table véhicule
-        if entretien.km > existing_vehicule.km:
-            existing_vehicule.km = entretien.km
-    if entretien.type is not None:
-        existing_entretien.type = entretien.type
+    # 🔑 Valeurs finales
+    final_date = (
+        entretien.date if entretien.date is not None else existing_entretien.date
+    )
+    final_km = entretien.km if entretien.km is not None else existing_entretien.km
+    final_type = (
+        entretien.type if entretien.type is not None else existing_entretien.type
+    )
+
+    if final_km <= 0:
+        raise HTTPException(status_code=400, detail="Kilométrage invalide")
+
+    # 🔍 Validation métier date ↔ km
+    validate_entretien_coherence(
+        session,
+        vehicule_id,
+        final_type,
+        final_date,
+        final_km,
+        exclude_entretien_id=entretien_id,
+    )
+
+    # ✅ Appliquer les modifications
+    existing_entretien.date = final_date
+    existing_entretien.km = final_km
+    existing_entretien.type = final_type
+
     if entretien.cost is not None:
         existing_entretien.cost = entretien.cost
     if entretien.comment is not None:
         existing_entretien.comment = entretien.comment
 
+    # 🔁 Mise à jour km véhicule si nécessaire
+    if final_km > vehicule.km:
+        vehicule.km = final_km
+
     session.commit()
     session.refresh(existing_entretien)
-    session.refresh(existing_vehicule)
+    session.refresh(vehicule)
+
     return existing_entretien
+
+
+# Supprimer un entretien
+@router.delete("/{vehicule_id}/entretiens/{entretien_id}", status_code=204)
+def delete_entretien(
+    vehicule_id: int,
+    entretien_id: int,
+    session: Session = Depends(get_session),
+):
+    # Vérifier le véhicule
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    # Vérifier l'entretien
+    entretien = session.get(Entretien, entretien_id)
+    if not entretien:
+        raise HTTPException(status_code=404, detail="Entretien introuvable")
+
+    # Vérifier cohérence
+    if entretien.vehicule_id != vehicule_id:
+        raise HTTPException(
+            status_code=404, detail="Cet entretien n'appartient pas à ce véhicule"
+        )
+
+    session.delete(entretien)
+    session.commit()
+
+    return None
