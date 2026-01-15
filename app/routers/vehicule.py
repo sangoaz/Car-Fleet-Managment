@@ -45,19 +45,6 @@ def get_vehicule(
     return vehicule
 
 
-# Afficher toutes les alertes d'un véhicule
-@router.get("/{vehicule_id}/alerts")
-def get_vehicule_alerts(
-    vehicule_id: int,
-    session: Session = Depends(get_session),
-):
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
-
-    return get_vehicle_alerts(session, vehicule)
-
-
 # Afficher la liste des véhicules
 
 

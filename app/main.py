@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from app.database import engine
 from app.routers.vehicule import router as vehicule_router
 from app.routers.entretiens import router as entretiens_router
+from app.routers.alerts import router as alerts_router
 
 
 @asynccontextmanager
@@ -19,3 +20,4 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(vehicule_router)
 app.include_router(entretiens_router)
+app.include_router(alerts_router)

@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict
 from datetime import date as Date
 from typing import List, Optional
 from app.enums import EntretienType
+from app.services.alerts.base import Alert
 
 
 # =========================
@@ -121,3 +122,13 @@ class VehiculeOverviewResponse(BaseModel):
     last_entretiens: List[EntretienOverview]
     last_controle_technique: Optional[EntretienOverview]
     issues: List[EntretienIssue] = []
+
+
+# =========================
+# ALERTES
+# =========================
+
+
+class VehiculeAlertsResponse(BaseModel):
+    vehicule_id: int
+    alerts: List[Alert]
