@@ -132,3 +132,42 @@ class VehiculeOverviewResponse(BaseModel):
 class VehiculeAlertsResponse(BaseModel):
     vehicule_id: int
     alerts: List[Alert]
+
+
+# =========================
+# PLEINS DE CARBURANT
+# =========================
+
+
+class FuelFillCreate(BaseModel):
+    date: Date
+    km: int
+    liters: float
+    cost: float
+
+
+class FuelFillRead(BaseModel):
+    id: int
+    vehicule_id: int
+    date: Date
+    km: int
+    liters: float
+    cost: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FuelFillUpdate(BaseModel):
+    date: Date | None = None
+    km: int | None = None
+    liters: float | None = None
+    cost: float | None = None
+
+
+class FuelStatsRead(BaseModel):
+    total_km: int
+    total_liters: float
+    total_cost: float
+
+    average_consumption: float | None
+    last_consumption: float | None

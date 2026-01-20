@@ -6,6 +6,14 @@ Car Fleet Management est une API backend développée avec [FastAPI](https://fas
 
 L’API centralise la gestion des véhicules d’une flotte : création, modification, suppression, consultation, suivi détaillé des entretiens (vidange, pneus, freins, révision, contrôle technique) et des pleins de carburant. Des alertes sont générées automatiquement pour anticiper les opérations de maintenance.
 
+## 🧠 Philosophie métier
+
+L’API est conçue autour de règles métier explicites :
+
+- le kilométrage est une donnée critique et strictement croissante
+- les alertes sont calculées dynamiquement à partir des usages réels
+- les opérations de maintenance sont anticipées, pas seulement constatées
+
 ## ✨ Fonctionnalités
 
 - CRUD véhicules (création, lecture, modification, suppression)
@@ -14,6 +22,8 @@ L’API centralise la gestion des véhicules d’une flotte : création, modif
 - Calculs et alertes automatiques selon le kilométrage ou la date
 - Pagination et filtres sur les historiques d’entretiens
 - Architecture modulaire (routers, services, alerts)
+- Moteur d’alertes métier basé sur des règles km / date
+- Endpoint dédié pour consulter l’état des alertes par véhicule
 
 ## 🛠️ Stack technique
 
@@ -73,11 +83,13 @@ tests/                     # Tests unitaires et d'intégration
 
 ## 🔮 Extensions futures possibles
 
+- Suivi kilométrique fiable basé sur les pleins et entretiens
 - Authentification et gestion des utilisateurs
 - Gestion des incidents et réparations
 - Export des données (CSV, PDF)
 - Statistiques avancées (coûts, consommation, alertes)
 - Interface web ou mobile dédiée
+- Les entretiens sont actuellement exposés uniquement dans le contexte véhicule
 
 ---
 

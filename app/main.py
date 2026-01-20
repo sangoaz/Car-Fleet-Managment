@@ -6,6 +6,22 @@ from app.database import engine
 from app.routers.vehicule import router as vehicule_router
 from app.routers.entretiens import router as entretiens_router
 from app.routers.alerts import router as alerts_router
+from app.routers.fuel import router as fuel_router
+
+# ---------------------------------------------------------
+# Point d'entrée de l'application FastAPI
+#
+# Ce fichier initialise l'application, configure son cycle
+# de vie (démarrage / arrêt) et enregistre les routes API.
+#
+# La fonction `lifespan` est utilisée pour exécuter du code
+# au démarrage de l'application, notamment l'initialisation
+# de la base de données (création des tables si nécessaires).
+#
+# Le détail du fonctionnement interne de FastAPI n'est pas
+# requis ici : ce fichier sert principalement à brancher
+# les différents composants de l'application.
+# ---------------------------------------------------------
 
 
 @asynccontextmanager
@@ -18,6 +34,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
+# Branchement des différentes routes du dossier /routers
 app.include_router(vehicule_router)
 app.include_router(entretiens_router)
 app.include_router(alerts_router)
+app.include_router(fuel_router)

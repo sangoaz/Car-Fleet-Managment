@@ -6,6 +6,27 @@ from typing import List, Optional
 
 from app.enums import EntretienType
 
+# ---------------------------------------------------------
+# Modèles de données (SQLModel)
+#
+# Ce fichier définit les entités principales de l'application
+# et leur structure en base de données :
+# - Vehicule : représente un véhicule de la flotte
+# - Entretien : représente un entretien lié à un véhicule
+# - FuelFill : représente un plein de carburant
+#
+# Les clés étrangères (foreign_key) définissent les relations
+# au niveau de la base de données.
+#
+# Les Relationship sont utilisées uniquement pour faciliter
+# la navigation entre les objets Python (ex: vehicule.entretiens)
+# et n'ont pas d'impact direct sur la structure des tables SQL.
+#
+# Certaines relations sont optionnelles côté Python car elles
+# peuvent ne pas être chargées en mémoire selon les requêtes,
+# même si elles sont obligatoires au niveau métier.
+# ---------------------------------------------------------
+
 
 # Table des Véhicules
 class Vehicule(SQLModel, table=True):
