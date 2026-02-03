@@ -33,6 +33,8 @@ def compute_fuel_stats(
             "total_cost": sum(f.cost for f in fuels),
             "average_consumption": None,
             "last_consumption": None,
+            "rolling_consumption": None,
+            "cost_per_km": None,
         }
 
     # Initialisation des accumulateurs
@@ -56,6 +58,17 @@ def compute_fuel_stats(
         total_liters += curr.liters
         total_cost += curr.cost
 
+    # Calculer la consommation glissante sur les 3 derniers pleins
+    ROLLING_WINDOW = 3
+
+    rolling_consumption = None
+    if consumptions:
+        window = consumptions[-ROLLING_WINDOW:]
+        rolling_consumption = round(sum(window) / len(window), 2)
+
+    # Calculer le cout par km
+    cost_per_km = round(total_cost / total_km, 3) if total_km > 0 else None
+
     return {
         "total_km": total_km,
         "total_liters": round(total_liters, 2),
@@ -64,6 +77,8 @@ def compute_fuel_stats(
             round(sum(consumptions) / len(consumptions), 2) if consumptions else None
         ),
         "last_consumption": round(consumptions[-1], 2) if consumptions else None,
+        "rolling_consumption": rolling_consumption if consumptions else None,
+        "cost_per_km": cost_per_km if consumptions else None,
     }
 
 

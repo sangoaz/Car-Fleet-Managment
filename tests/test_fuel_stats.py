@@ -120,10 +120,58 @@ def test_fuel_stats_ignore_invalid_km(session):
     assert stats["average_consumption"] == 7.0
 
 
-# Intervalle invalide au milieu
+# Test du cout par km
+def test_fuel_stats_cost_per_km(session):
+    vehicule = create_vehicle(session)
 
-# Vérification total_km
+    create_fuel(session, vehicule.id, 10000, 40, 60)
+    create_fuel(session, vehicule.id, 10500, 30, 50)
 
-# Vérification total_liters et total_cost
+    stats = compute_fuel_stats(session, vehicule.id)
 
-#
+    assert stats["cost_per_km"] == round(50 / 500, 3)
+
+
+# Test du cout par km si pas de km enregistré
+def test_fuel_stats_cost_per_km_no_km(session):
+    vehicule = create_vehicle(session)
+
+    stats = compute_fuel_stats(session, vehicule.id)
+
+    assert stats["cost_per_km"] is None
+
+
+# Test des consommations glissantes avec assez de données
+def test_fuel_stats_rolling_consumption(session):
+    vehicule = create_vehicle(session)
+
+    create_fuel(session, vehicule.id, 10000, 40, 60)  # base
+    create_fuel(session, vehicule.id, 10500, 30, 50)  # 6.0
+    create_fuel(session, vehicule.id, 11000, 35, 55)  # 7.0
+    create_fuel(session, vehicule.id, 11500, 33, 52)  # 6.6
+
+    stats = compute_fuel_stats(session, vehicule.id)
+
+    expected = round((6.0 + 7.0 + 6.6) / 3, 2)
+    assert stats["rolling_consumption"] == expected
+
+
+# Test des consommations glissantes avec peu de données
+def test_fuel_stats_rolling_consumption_not_enough_data(session):
+    vehicule = create_vehicle(session)
+
+    create_fuel(session, vehicule.id, 10000, 40, 60)
+    create_fuel(session, vehicule.id, 10500, 30, 50)  # 6.0
+
+    stats = compute_fuel_stats(session, vehicule.id)
+
+    assert stats["rolling_consumption"] == 6.0
+
+
+# Test des consommations glissantes avec aucune donnée
+def test_fuel_stats_rolling_consumption_none(session):
+    vehicule = create_vehicle(session)
+
+    stats = compute_fuel_stats(session, vehicule.id)
+
+    assert stats["rolling_consumption"] is None

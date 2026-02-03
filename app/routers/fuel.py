@@ -2,13 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import FuelFill
-from app.schemas import FuelFillCreate, FuelFillRead, FuelFillUpdate
+from app.models import FuelFill, Vehicule
+from app.schemas import FuelFillCreate, FuelFillRead, FuelFillUpdate, FuelStatsRead
 from app.services.fuel_services import (
     validate_km,
     validate_fuel_fill_update,
     is_last_fuel_fill,
 )
+from app.services.fuel_stats import compute_fuel_stats
 
 router = APIRouter(prefix="/vehicules", tags=["Fuel"])
 
@@ -20,6 +21,11 @@ def create_fuel_fill(
     fuel: FuelFillCreate,
     session: Session = Depends(get_session),
 ):
+    # Vérifier que le véhicule existe
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
     validate_km(session, vehicule_id, fuel.km)
 
     new_fuel_fill = FuelFill(
@@ -29,6 +35,10 @@ def create_fuel_fill(
         liters=fuel.liters,
         cost=fuel.cost,
     )
+
+    # Mise à jour des km du véhicule si nécessaire
+    if fuel.km > vehicule.km:
+        vehicule.km = fuel.km
 
     session.add(new_fuel_fill)
     session.commit()
@@ -43,6 +53,11 @@ def list_fuel_fills(
     vehicule_id: int,
     session: Session = Depends(get_session),
 ):
+    # Vérifier que le véhicule existe
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
     stmt = (
         select(FuelFill)
         .where(FuelFill.vehicule_id == vehicule_id)
@@ -116,3 +131,12 @@ def delete_fuel_fill(
 
     session.delete(fuel)
     session.commit()
+
+
+# Route pour afficher les statistiques de carburant
+@router.get("/{vehicule_id}/fuel-stats", response_model=FuelStatsRead)
+def get_fuel_stats(
+    vehicule_id: int,
+    session: Session = Depends(get_session),
+):
+    return compute_fuel_stats(session, vehicule_id)
