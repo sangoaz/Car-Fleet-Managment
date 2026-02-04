@@ -173,3 +173,8 @@ class FuelStatsRead(BaseModel):
     last_consumption: float | None
     rolling_consumption: float | None
     cost_per_km: float | None
+
+
+# =========================
+# UTILISATEURS
+# =========================

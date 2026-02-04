@@ -1,10 +1,10 @@
 """Modèles SQLModel"""
 
 from sqlmodel import SQLModel, Field, Relationship
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 
-from app.enums import EntretienType
+from app.enums import EntretienType, UserRole
 
 # ---------------------------------------------------------
 # Modèles de données (SQLModel)
@@ -14,6 +14,8 @@ from app.enums import EntretienType
 # - Vehicule : représente un véhicule de la flotte
 # - Entretien : représente un entretien lié à un véhicule
 # - FuelFill : représente un plein de carburant
+# - User : représente les utilisateurs
+# - Company : représente les entreprises
 #
 # Les clés étrangères (foreign_key) définissent les relations
 # au niveau de la base de données.
@@ -64,6 +66,27 @@ class FuelFill(SQLModel, table=True):
     km: int
     liters: float
     cost: float | None = None
+
+
+# Table des utilisateurs
+class User(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    email: str | None = None
+    password_hash: str
+    role: UserRole = Field(default=UserRole.DRIVER)
+    is_active: bool = Field(default=True)
+    company_id: int | None = Field(default=None, foreign_key="company.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# Table des entreprises
+class Company(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+
+    name: str = Field(index=True)
+    is_active: bool = Field(default=True)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # Table des incidents

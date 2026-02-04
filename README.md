@@ -89,7 +89,6 @@ tests/                     # Tests unitaires et d'intégration
 - Export des données (CSV, PDF)
 - Statistiques avancées (coûts, consommation, alertes)
 - Interface web ou mobile dédiée
-- Les entretiens sont actuellement exposés uniquement dans le contexte véhicule
 
 ---
 
