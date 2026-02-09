@@ -1,10 +1,11 @@
 # Test de dérive de consommation
-def test_fuel_consumption_drift_alert(client):
-    vehicule = client.post(
-        "/vehicules",
-        json={"plate": "ALERT-001", "model": "Fuel Alert", "km": 10000},
-    ).json()
-
+def test_fuel_consumption_drift_alert(client, create_vehicule):
+    # Création du véhicule
+    vehicule = create_vehicule(
+        plate="ALERT-001",
+        model="Fuel Alert",
+        km=10000,
+    )
     vid = vehicule["id"]
 
     client.post(
@@ -35,12 +36,13 @@ def test_fuel_consumption_drift_alert(client):
 
 
 # Test: Aucune alerte de carburant
-def test_no_fuel_alert_when_normal(client):
-    vehicule = client.post(
-        "/vehicules",
-        json={"plate": "ALERT-002", "model": "Fuel OK", "km": 10000},
-    ).json()
-
+def test_no_fuel_alert_when_normal(client, create_vehicule):
+    # Création du véhicule
+    vehicule = create_vehicule(
+        plate="ALERT-002",
+        model="Fuel OK",
+        km=10000,
+    )
     vid = vehicule["id"]
 
     client.post(

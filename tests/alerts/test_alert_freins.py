@@ -6,7 +6,12 @@ from app.services.alerts.freins import check_freins_alert
 
 
 def test_freins_warning_if_no_entretien(session):
-    vehicule = Vehicule(plate="PN-001", model="Test", km=50000)
+    vehicule = Vehicule(
+        plate="PN-001",
+        model="Test",
+        km=50000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -21,7 +26,12 @@ def test_freins_warning_if_no_entretien(session):
 
 
 def test_freins_ok(session):
-    vehicule = Vehicule(plate="PN-002", model="Test", km=60000)
+    vehicule = Vehicule(
+        plate="PN-002",
+        model="Test",
+        km=60000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -44,7 +54,12 @@ def test_freins_ok(session):
 
 
 def test_freins_alert(session):
-    vehicule = Vehicule(plate="PN-003", model="Test", km=130000)
+    vehicule = Vehicule(
+        plate="PN-003",
+        model="Test",
+        km=130000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 

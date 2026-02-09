@@ -6,7 +6,12 @@ from app.services.alerts.vidange import check_vidange_alert
 
 
 def test_vidange_warning_if_no_entretien(session):
-    vehicule = Vehicule(plate="VID-001", model="Test", km=50000)
+    vehicule = Vehicule(
+        plate="VID-001",
+        model="Test",
+        km=50000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -21,7 +26,12 @@ def test_vidange_warning_if_no_entretien(session):
 
 
 def test_vidange_ok(session):
-    vehicule = Vehicule(plate="VID-002", model="Test", km=52000)
+    vehicule = Vehicule(
+        plate="VID-002",
+        model="Test",
+        km=52000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -44,7 +54,12 @@ def test_vidange_ok(session):
 
 
 def test_vidange_alert_by_km(session):
-    vehicule = Vehicule(plate="VID-003", model="Test", km=70000)
+    vehicule = Vehicule(
+        plate="VID-003",
+        model="Test",
+        km=70000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -67,7 +82,12 @@ def test_vidange_alert_by_km(session):
 
 
 def test_vidange_alert_by_date(session):
-    vehicule = Vehicule(plate="VID-004", model="Test", km=52000)
+    vehicule = Vehicule(
+        plate="VID-004",
+        model="Test",
+        km=52000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 

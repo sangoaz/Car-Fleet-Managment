@@ -1,7 +1,7 @@
 """Modèles SQLModel"""
 
 from sqlmodel import SQLModel, Field, Relationship
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from app.enums import EntretienType, UserRole
@@ -30,6 +30,17 @@ from app.enums import EntretienType, UserRole
 # ---------------------------------------------------------
 
 
+# Table des entreprises
+class Company(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    vehicules: list["Vehicule"] = Relationship(back_populates="company")
+    users: list["User"] = Relationship(back_populates="company")
+
+
 # Table des Véhicules
 class Vehicule(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -37,10 +48,14 @@ class Vehicule(SQLModel, table=True):
     model: str
     km: int
 
-    buy_date: date | None = Field(default=None)
-    first_registration_date: date | None = Field(default=None)
+    buy_date: date | None = None
+    first_registration_date: date | None = None
 
-    entretiens: List["Entretien"] = Relationship(back_populates="vehicule")
+    company_id: int = Field(foreign_key="company.id", index=True)
+    company: Company = Relationship(back_populates="vehicules")
+
+    entretiens: list["Entretien"] = Relationship(back_populates="vehicule")
+    fuel_fills: list["FuelFill"] = Relationship(back_populates="vehicule")
 
 
 # Table des Entretiens
@@ -48,11 +63,11 @@ class Entretien(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
 
     vehicule_id: int = Field(foreign_key="vehicule.id")
-    vehicule: Optional[Vehicule] = Relationship(back_populates="entretiens")
+    vehicule: Vehicule = Relationship(back_populates="entretiens")
 
     date: date
     km: int
-    type: EntretienType  # Vidange / Pneus / CT, etc...
+    type: EntretienType
     cost: float | None = None
     comment: str | None = None
 
@@ -61,6 +76,8 @@ class Entretien(SQLModel, table=True):
 class FuelFill(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     vehicule_id: int = Field(foreign_key="vehicule.id")
+
+    vehicule: Vehicule = Relationship(back_populates="fuel_fills")
 
     date: date
     km: int
@@ -75,18 +92,11 @@ class User(SQLModel, table=True):
     password_hash: str
     role: UserRole = Field(default=UserRole.DRIVER)
     is_active: bool = Field(default=True)
+
     company_id: int | None = Field(default=None, foreign_key="company.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    company: Company | None = Relationship(back_populates="users")
 
-
-# Table des entreprises
-class Company(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-
-    name: str = Field(index=True)
-    is_active: bool = Field(default=True)
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # Table des incidents

@@ -1,12 +1,13 @@
 # Vérifier l'accessibilité de la route
-def test_get_fuel_stats_ok(client):
-    vehicule_res = client.post(
-        "/vehicules",
-        json={"plate": "STAT-API", "model": "Stats API", "km": 10000},
+def test_get_fuel_stats_ok(client, create_vehicule):
+    # Création du véhicule
+    vehicule = create_vehicule(
+        plate="STATS-API",
+        model="Stats API",
+        km=10000,
     )
-    vehicule_id = vehicule_res.json()["id"]
 
-    response = client.get(f"/vehicules/{vehicule_id}/fuel-stats")
+    response = client.get(f"/vehicules/{vehicule["id"]}/fuel-stats")
 
     assert response.status_code == 200
 
@@ -18,15 +19,16 @@ def test_get_fuel_stats_ok(client):
 
 
 # Test stats cohérentes avec des pleins
-def test_get_fuel_stats_with_fuels(client):
-    vehicule_res = client.post(
-        "/vehicules",
-        json={"plate": "STAT-API-2", "model": "Stats API 2", "km": 10000},
+def test_get_fuel_stats_with_fuels(client, create_vehicule):
+    # Création du véhicule
+    vehicule = create_vehicule(
+        plate="STAT-API-2",
+        model="Stats API 2",
+        km=10000,
     )
-    vehicule_id = vehicule_res.json()["id"]
 
     client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-01",
             "km": 10100,  # 👈 strictement supérieur
@@ -35,7 +37,7 @@ def test_get_fuel_stats_with_fuels(client):
         },
     )
     client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-10",
             "km": 10600,
@@ -44,7 +46,7 @@ def test_get_fuel_stats_with_fuels(client):
         },
     )
 
-    response = client.get(f"/vehicules/{vehicule_id}/fuel-stats")
+    response = client.get(f"/vehicules/{vehicule["id"]}/fuel-stats")
 
     data = response.json()
     assert data["total_km"] == 500

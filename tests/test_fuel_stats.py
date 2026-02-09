@@ -6,11 +6,7 @@ from app.services.fuel_stats import compute_fuel_stats
 
 # Creer un véhicule fictif
 def create_vehicle(session, km=10000):
-    vehicule = Vehicule(
-        plate="STAT-001",
-        model="Stats Car",
-        km=km,
-    )
+    vehicule = Vehicule(plate="STAT-001", model="Stats Car", km=km, company_id=999)
     session.add(vehicule)
     session.commit()
     session.refresh(vehicule)

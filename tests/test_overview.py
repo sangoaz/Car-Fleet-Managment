@@ -1,33 +1,34 @@
-def test_overview_without_entretien(client):
+def test_overview_without_entretien(client, create_vehicule):
     # Création du véhicule
-    res = client.post(
-        "/vehicules", json={"plate": "OV-001", "model": "Overview Test", "km": 5000}
+    vehicule = create_vehicule(
+        plate="OVERVIEW-001",
+        model="Overview Without Ent Test",
+        km=5000,
     )
-    vehicule_id = res.json()["id"]
 
-    res = client.get(f"/vehicules/{vehicule_id}/overview")
+    res = client.get(f"/vehicules/{vehicule["id"]}/overview")
 
     assert res.status_code == 200
     data = res.json()
 
     assert "vehicule" in data
-    assert data["vehicule"]["id"] == vehicule_id
+    assert data["vehicule"]["id"] == vehicule["id"]
     assert data["last_entretiens"] == []
     assert data["last_controle_technique"] is None
 
 
-def test_overview_with_entretiens_limit_5(client):
+def test_overview_with_entretiens_limit_5(client, create_vehicule):
     # Création du véhicule
-    res = client.post(
-        "/vehicules",
-        json={"plate": "OV-002", "model": "Overview Many", "km": 10000},
+    vehicule = create_vehicule(
+        plate="OVERVIEW-002",
+        model="Overview With Ent Test",
+        km=5000,
     )
-    vehicule_id = res.json()["id"]
 
     # Création de 6 entretiens (dates croissantes)
     for i in range(6):
         client.post(
-            f"/vehicules/{vehicule_id}/entretiens",
+            f"/vehicules/{vehicule["id"]}/entretiens",
             json={
                 "date": f"2025-01-0{i+1}",
                 "km": 10000 + i * 100,
@@ -36,7 +37,7 @@ def test_overview_with_entretiens_limit_5(client):
         )
 
     # Appel de l’overview
-    res = client.get(f"/vehicules/{vehicule_id}/overview")
+    res = client.get(f"/vehicules/{vehicule["id"]}/overview")
 
     assert res.status_code == 200
     data = res.json()
@@ -54,17 +55,17 @@ def test_overview_with_entretiens_limit_5(client):
     assert "2025-01-01" not in dates
 
 
-def test_overview_last_controle_technique_only(client):
+def test_overview_last_controle_technique_only(client, create_vehicule):
     # Création du véhicule
-    res = client.post(
-        "/vehicules",
-        json={"plate": "OV-003", "model": "Overview CT", "km": 20000},
+    vehicule = create_vehicule(
+        plate="LASTCT-001",
+        model="Last CT Test",
+        km=5000,
     )
-    vehicule_id = res.json()["id"]
 
     # Création de plusieurs contrôles techniques
     client.post(
-        f"/vehicules/{vehicule_id}/entretiens",
+        f"/vehicules/{vehicule["id"]}/entretiens",
         json={
             "date": "2023-01-01",
             "km": 15000,
@@ -73,7 +74,7 @@ def test_overview_last_controle_technique_only(client):
     )
 
     client.post(
-        f"/vehicules/{vehicule_id}/entretiens",
+        f"/vehicules/{vehicule["id"]}/entretiens",
         json={
             "date": "2024-01-01",
             "km": 18000,
@@ -83,7 +84,7 @@ def test_overview_last_controle_technique_only(client):
 
     # Création d’un autre type d’entretien (ne doit pas interférer)
     client.post(
-        f"/vehicules/{vehicule_id}/entretiens",
+        f"/vehicules/{vehicule["id"]}/entretiens",
         json={
             "date": "2024-06-01",
             "km": 19000,
@@ -92,7 +93,7 @@ def test_overview_last_controle_technique_only(client):
     )
 
     # Appel de l’overview
-    res = client.get(f"/vehicules/{vehicule_id}/overview")
+    res = client.get(f"/vehicules/{vehicule["id"]}/overview")
 
     assert res.status_code == 200
     data = res.json()

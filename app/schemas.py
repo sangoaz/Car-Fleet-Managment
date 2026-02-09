@@ -1,7 +1,7 @@
 """Schémas pydantic (input / output API)"""
 
 from pydantic import BaseModel, ConfigDict
-from datetime import date as Date
+from datetime import date as Date, datetime
 from typing import List, Optional
 from app.enums import EntretienType
 from app.services.alerts.base import Alert
@@ -19,6 +19,7 @@ class Create_vehicule(BaseModel):
     km: int
     buy_date: Date | None = None
     first_registration_date: Date | None = None
+    company_id: int
 
 
 # Modification des infos d'un véhicule
@@ -178,3 +179,10 @@ class FuelStatsRead(BaseModel):
 # =========================
 # UTILISATEURS
 # =========================
+
+
+# =========================
+# ENTREPRISES
+# =========================
+class CreateCompany(BaseModel):
+    name: str

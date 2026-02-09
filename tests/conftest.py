@@ -57,3 +57,33 @@ def session():
 
     with Session(engine) as session:
         yield session
+
+
+# Creation d'une entreprise fictive
+@pytest.fixture
+def company(client):
+    response = client.post(
+        "/company",
+        json={"name": "Test Company"},
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+# Creation d'un véhicule fictif dans une company
+@pytest.fixture
+def create_vehicule(client, company):
+    def _create_vehicule(**overrides):
+        data = {
+            "plate": "TEST-001",
+            "model": "Test Model",
+            "km": 1000,
+            "company_id": company["id"],  # 🔴 LA LIGNE CRITIQUE
+        }
+        data.update(overrides)
+
+        response = client.post("/vehicules", json=data)
+        assert response.status_code == 201
+        return response.json()
+
+    return _create_vehicule

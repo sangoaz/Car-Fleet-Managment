@@ -1,10 +1,10 @@
-def test_create_fuel_fill_ok(client):
+def test_create_fuel_fill_ok(client, create_vehicule):
     # Création du véhicule
-    vehicule_res = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-001", "model": "Fuel Test", "km": 10000},
+    vehicule = create_vehicule(
+        plate="FUEL-001",
+        model="Fuel Test",
+        km=10000,
     )
-    vehicule_id = vehicule_res.json()["id"]
 
     payload = {
         "date": "2026-01-10",
@@ -14,7 +14,7 @@ def test_create_fuel_fill_ok(client):
     }
 
     response = client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json=payload,
     )
 
@@ -22,22 +22,22 @@ def test_create_fuel_fill_ok(client):
 
     data = response.json()
     assert "id" in data
-    assert data["vehicule_id"] == vehicule_id
+    assert data["vehicule_id"] == vehicule["id"]
     assert data["km"] == payload["km"]
     assert data["liters"] == payload["liters"]
     assert data["cost"] == payload["cost"]
 
 
-def test_create_fuel_fill_invalid_km(client):
-    vehicule_res = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-002", "model": "Fuel KM", "km": 10000},
+def test_create_fuel_fill_invalid_km(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="FUEL-002",
+        model="Fuel KM",
+        km=10000,
     )
-    vehicule_id = vehicule_res.json()["id"]
 
     # Premier plein OK
     client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-01",
             "km": 10100,
@@ -48,7 +48,7 @@ def test_create_fuel_fill_invalid_km(client):
 
     # Second plein avec km invalide
     response = client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-02",
             "km": 10000,  # ⛔ inférieur
@@ -60,15 +60,15 @@ def test_create_fuel_fill_invalid_km(client):
     assert response.status_code == 400
 
 
-def test_get_fuel_fills_list(client):
-    vehicule_res = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-003", "model": "Fuel List", "km": 5000},
+def test_get_fuel_fills_list(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="FUEL-003",
+        model="Fuel List",
+        km=5000,
     )
-    vehicule_id = vehicule_res.json()["id"]
 
     client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-01",
             "km": 5200,
@@ -78,7 +78,7 @@ def test_get_fuel_fills_list(client):
     )
 
     client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-10",
             "km": 5600,
@@ -87,7 +87,7 @@ def test_get_fuel_fills_list(client):
         },
     )
 
-    response = client.get(f"/vehicules/{vehicule_id}/fuel-fills")
+    response = client.get(f"/vehicules/{vehicule["id"]}/fuel-fills")
 
     assert response.status_code == 200
     data = response.json()
@@ -96,15 +96,15 @@ def test_get_fuel_fills_list(client):
     assert data[0]["km"] > data[1]["km"]  # tri descendant
 
 
-def test_get_fuel_fill_ok(client):
-    vehicule_res = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-004", "model": "Fuel Get", "km": 7000},
+def test_get_fuel_fill_ok(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="FUEL-004",
+        model="Fuel Get",
+        km=7000,
     )
-    vehicule_id = vehicule_res.json()["id"]
 
     fuel_res = client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-05",
             "km": 7300,
@@ -114,25 +114,27 @@ def test_get_fuel_fill_ok(client):
     )
     fuel_id = fuel_res.json()["id"]
 
-    response = client.get(f"/vehicules/{vehicule_id}/fuel-fills/{fuel_id}")
+    response = client.get(f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel_id}")
 
     assert response.status_code == 200
     assert response.json()["id"] == fuel_id
 
 
-def test_get_fuel_fill_wrong_vehicle(client):
-    v1 = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-005", "model": "Fuel V1", "km": 8000},
-    ).json()["id"]
+def test_get_fuel_fill_wrong_vehicle(client, create_vehicule):
+    v1 = create_vehicule(
+        plate="FUEL-005",
+        model="Fuel V1",
+        km=8000,
+    )
 
-    v2 = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-006", "model": "Fuel V2", "km": 9000},
-    ).json()["id"]
+    v2 = create_vehicule(
+        plate="FUEL-006",
+        model="Fuel V2t",
+        km=9000,
+    )
 
     fuel_id = client.post(
-        f"/vehicules/{v1}/fuel-fills",
+        f"/vehicules/{v1["id"]}/fuel-fills",
         json={
             "date": "2026-01-10",
             "km": 8200,
@@ -141,19 +143,20 @@ def test_get_fuel_fill_wrong_vehicle(client):
         },
     ).json()["id"]
 
-    response = client.get(f"/vehicules/{v2}/fuel-fills/{fuel_id}")
+    response = client.get(f"/vehicules/{v2["id"]}/fuel-fills/{fuel_id}")
 
     assert response.status_code == 404
 
 
-def test_patch_last_fuel_fill_ok(client):
-    vehicule_id = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-007", "model": "Fuel Patch", "km": 10000},
-    ).json()["id"]
+def test_patch_last_fuel_fill_ok(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="FUEL-007",
+        model="Fuel Patch",
+        km=10000,
+    )
 
     fuel = client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-10",
             "km": 10200,
@@ -163,7 +166,7 @@ def test_patch_last_fuel_fill_ok(client):
     ).json()
 
     response = client.patch(
-        f"/vehicules/{vehicule_id}/fuel-fills/{fuel['id']}",
+        f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel['id']}",
         json={"cost": 95},
     )
 
@@ -171,14 +174,15 @@ def test_patch_last_fuel_fill_ok(client):
     assert response.json()["cost"] == 95
 
 
-def test_patch_non_last_fuel_fill_forbidden(client):
-    vehicule_id = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-008", "model": "Fuel Patch KO", "km": 9000},
-    ).json()["id"]
+def test_patch_non_last_fuel_fill_forbidden(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="FUEL-008",
+        model="Fuel Patch KO",
+        km=0000,
+    )
 
     fuel1 = client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-01",
             "km": 9100,
@@ -188,7 +192,7 @@ def test_patch_non_last_fuel_fill_forbidden(client):
     ).json()
 
     client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-10",
             "km": 9500,
@@ -198,21 +202,22 @@ def test_patch_non_last_fuel_fill_forbidden(client):
     )
 
     response = client.patch(
-        f"/vehicules/{vehicule_id}/fuel-fills/{fuel1['id']}",
+        f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel1['id']}",
         json={"cost": 75},
     )
 
     assert response.status_code == 400
 
 
-def test_delete_last_fuel_fill_ok(client):
-    vehicule_id = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-009", "model": "Fuel Delete", "km": 11000},
-    ).json()["id"]
+def test_delete_last_fuel_fill_ok(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="FUEL-009",
+        model="Fuel Delete",
+        km=11000,
+    )
 
     fuel = client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-10",
             "km": 11200,
@@ -221,19 +226,20 @@ def test_delete_last_fuel_fill_ok(client):
         },
     ).json()
 
-    response = client.delete(f"/vehicules/{vehicule_id}/fuel-fills/{fuel['id']}")
+    response = client.delete(f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel['id']}")
 
     assert response.status_code == 204
 
 
-def test_delete_non_last_fuel_fill_forbidden(client):
-    vehicule_id = client.post(
-        "/vehicules",
-        json={"plate": "FUEL-010", "model": "Fuel Delete KO", "km": 10000},
-    ).json()["id"]
+def test_delete_non_last_fuel_fill_forbidden(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="FUEL-010",
+        model="Fuel Delete KO",
+        km=10000,
+    )
 
     fuel1 = client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-01",
             "km": 10100,
@@ -243,7 +249,7 @@ def test_delete_non_last_fuel_fill_forbidden(client):
     ).json()
 
     client.post(
-        f"/vehicules/{vehicule_id}/fuel-fills",
+        f"/vehicules/{vehicule["id"]}/fuel-fills",
         json={
             "date": "2026-01-10",
             "km": 10500,
@@ -252,6 +258,6 @@ def test_delete_non_last_fuel_fill_forbidden(client):
         },
     )
 
-    response = client.delete(f"/vehicules/{vehicule_id}/fuel-fills/{fuel1['id']}")
+    response = client.delete(f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel1['id']}")
 
     assert response.status_code == 400

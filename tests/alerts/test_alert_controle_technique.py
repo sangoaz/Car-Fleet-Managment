@@ -6,7 +6,12 @@ from app.services.alerts.controle_technique import check_controle_technique_aler
 
 
 def test_ct_warning_if_no_entretien(session):
-    vehicule = Vehicule(plate="CT-001", model="Test", km=50000)
+    vehicule = Vehicule(
+        plate="CT-001",
+        model="Test",
+        km=50000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -20,7 +25,12 @@ def test_ct_warning_if_no_entretien(session):
 
 
 def test_ct_ok(session):
-    vehicule = Vehicule(plate="CT-002", model="Test", km=50000)
+    vehicule = Vehicule(
+        plate="CT-002",
+        model="Test",
+        km=50000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -42,7 +52,12 @@ def test_ct_ok(session):
 
 
 def test_ct_alert_if_expired(session):
-    vehicule = Vehicule(plate="CT-003", model="Test", km=50000)
+    vehicule = Vehicule(
+        plate="CT-003",
+        model="Test",
+        km=50000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 

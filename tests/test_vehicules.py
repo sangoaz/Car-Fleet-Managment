@@ -1,33 +1,31 @@
-def test_create_vehicule(client):
-    payload = {"plate": "TEST-001", "model": "Test Car", "km": 10000}
+def test_create_vehicule(client, create_vehicule):
+    vehicule = create_vehicule(plate="CREATE-001", model="Create Test", km=5000)
 
-    response = client.post("/vehicules", json=payload)
+    response = client.post("/vehicules", json=vehicule)
 
     assert response.status_code == 201
 
     data = response.json()
 
     assert "id" in data
-    assert data["plate"] == payload["plate"]
-    assert data["model"] == payload["model"]
-    assert data["km"] == payload["km"]
+    assert data["plate"] == vehicule["plate"]
+    assert data["model"] == vehicule["model"]
+    assert data["km"] == vehicule["km"]
 
 
-def test_get_vehicule_ok(client):
-    # Création du véhicule
-    create_res = client.post(
-        "/vehicules",
-        json={"plate": "GET-001", "model": "Get Test", "km": 5000},
+def test_get_vehicule_ok(client, create_vehicule):
+    vehicule = create_vehicule(
+        plate="GET-001",
+        model="Get Test",
+        km=5000,
     )
-    vehicule_id = create_res.json()["id"]
 
-    # Récupération du véhicule
-    response = client.get(f"/vehicules/{vehicule_id}")
+    response = client.get(f"/vehicules/{vehicule['id']}")
 
     assert response.status_code == 200
 
     data = response.json()
-    assert data["id"] == vehicule_id
+    assert data["id"] == vehicule["id"]
     assert data["plate"] == "GET-001"
     assert data["model"] == "Get Test"
     assert data["km"] == 5000
@@ -40,18 +38,17 @@ def test_get_vehicule_not_found(client):
     assert response.json()["detail"] == "Véhicule introuvable"
 
 
-def test_patch_vehicule_partial_update(client):
+def test_patch_vehicule_partial_update(client, create_vehicule):
     # Création du véhicule
-    create_res = client.post(
-        "/vehicules",
-        json={"plate": "PATCH-001", "model": "Patch Test", "km": 8000},
+    vehicule = create_vehicule(
+        plate="PATCH-001",
+        model="Patch Test",
+        km=5000,
     )
-    vehicule = create_res.json()
-    vehicule_id = vehicule["id"]
 
     # Patch partiel (km uniquement)
     response = client.patch(
-        f"/vehicules/{vehicule_id}",
+        f"/vehicules/{vehicule["id"]}",
         json={"km": 12000},
     )
 
@@ -70,36 +67,36 @@ def test_patch_vehicule_not_found(client):
     assert response.json()["detail"] == "Véhicule introuvable"
 
 
-def test_delete_vehicule_ok(client):
+def test_delete_vehicule_ok(client, create_vehicule):
     # Création du véhicule
-    create_res = client.post(
-        "/vehicules",
-        json={"plate": "DEL-001", "model": "Delete Test", "km": 3000},
+    vehicule = create_vehicule(
+        plate="DELETE-001",
+        model="Delete Test",
+        km=5000,
     )
-    vehicule_id = create_res.json()["id"]
 
     # Suppression
-    response = client.delete(f"/vehicules/{vehicule_id}")
+    response = client.delete(f"/vehicules/{vehicule["id"]}")
 
     assert response.status_code == 200
     assert "supprimé" in response.json()["message"]
 
     # Vérifier qu'il n'existe plus
-    get_res = client.get(f"/vehicules/{vehicule_id}")
+    get_res = client.get(f"/vehicules/{vehicule["id"]}")
     assert get_res.status_code == 404
 
 
-def test_delete_vehicule_with_entretiens_forbidden(client):
+def test_delete_vehicule_with_entretiens_forbidden(client, create_vehicule):
     # Création du véhicule
-    vehicule_res = client.post(
-        "/vehicules",
-        json={"plate": "DEL-002", "model": "Delete Blocked", "km": 4000},
+    vehicule = create_vehicule(
+        plate="DELETE-002",
+        model="Delete With Ent Test",
+        km=5000,
     )
-    vehicule_id = vehicule_res.json()["id"]
 
     # Création d’un entretien
     client.post(
-        f"/vehicules/{vehicule_id}/entretiens",
+        f"/vehicules/{vehicule["id"]}/entretiens",
         json={
             "date": "2025-01-01",
             "km": 4000,
@@ -109,7 +106,7 @@ def test_delete_vehicule_with_entretiens_forbidden(client):
     )
 
     # Tentative de suppression
-    response = client.delete(f"/vehicules/{vehicule_id}")
+    response = client.delete(f"/vehicules/{vehicule["id"]}")
 
     assert response.status_code == 400
     assert (

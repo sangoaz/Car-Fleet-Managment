@@ -26,6 +26,7 @@ def create_vehicule(
         km=vehicule.km,
         buy_date=vehicule.buy_date,
         first_registration_date=vehicule.first_registration_date,
+        company_id=vehicule.company_id,
     )
     session.add(new_vehicule)
     session.commit()

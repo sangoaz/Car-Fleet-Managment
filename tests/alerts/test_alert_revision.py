@@ -6,7 +6,12 @@ from app.services.alerts.revision import check_revision_alert
 
 
 def test_revision_warning_if_no_entretien(session):
-    vehicule = Vehicule(plate="REV-001", model="Test", km=40000)
+    vehicule = Vehicule(
+        plate="REV-001",
+        model="Test",
+        km=40000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -21,7 +26,12 @@ def test_revision_warning_if_no_entretien(session):
 
 
 def test_revision_ok(session):
-    vehicule = Vehicule(plate="REV-002", model="Test", km=50000)
+    vehicule = Vehicule(
+        plate="REV-002",
+        model="Test",
+        km=50000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -44,7 +54,12 @@ def test_revision_ok(session):
 
 
 def test_revision_alert_by_km(session):
-    vehicule = Vehicule(plate="REV-003", model="Test", km=80000)
+    vehicule = Vehicule(
+        plate="REV-003",
+        model="Test",
+        km=80000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
@@ -67,7 +82,12 @@ def test_revision_alert_by_km(session):
 
 
 def test_revision_alert_by_date(session):
-    vehicule = Vehicule(plate="REV-004", model="Test", km=50000)
+    vehicule = Vehicule(
+        plate="REV-004",
+        model="Test",
+        km=50000,
+        company_id=999,
+    )
     session.add(vehicule)
     session.commit()
 
