@@ -8,7 +8,7 @@ from app.database import get_session
 from app.models import Company
 from app.schemas import CreateCompany
 
-router = APIRouter(prefix="/company", tags=["Company"])
+router = APIRouter(prefix="/companies", tags=["Company"])
 
 
 # Enregistrer une nouvelle entreprise
@@ -21,3 +21,13 @@ def create_company(company: CreateCompany, session: Session = Depends(get_sessio
     session.commit()
     session.refresh(new_company)
     return new_company
+
+
+# Afficher une entreprise
+@router.get("/{company_id}")
+def get_company(company_id: int, session: Session = Depends(get_session)):
+
+    company = session.get(Company, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Entreprise introuvable")
+    return company

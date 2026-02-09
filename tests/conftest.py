@@ -63,7 +63,7 @@ def session():
 @pytest.fixture
 def company(client):
     response = client.post(
-        "/company",
+        "/companies",
         json={"name": "Test Company"},
     )
     assert response.status_code == 201
