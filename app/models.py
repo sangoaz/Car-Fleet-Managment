@@ -88,8 +88,10 @@ class FuelFill(SQLModel, table=True):
 # Table des utilisateurs
 class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    email: str | None = None
+
+    email: str = Field(index=True, unique=True)
     password_hash: str
+
     role: UserRole = Field(default=UserRole.DRIVER)
     is_active: bool = Field(default=True)
 
@@ -97,6 +99,20 @@ class User(SQLModel, table=True):
     company: Company | None = Relationship(back_populates="users")
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# Table des assignements de véhicules
+class VehiculeAssignment(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+
+    vehicule_id: int = Field(foreign_key="vehicule.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+
+    start_date: datetime = Field(default_factory=datetime.utcnow)
+    end_date: datetime | None = None  # null = assignation active
+
+    vehicule: "Vehicule" = Relationship()
+    user: "User" = Relationship()
 
 
 # Table des incidents

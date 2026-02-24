@@ -1,4 +1,5 @@
 import sys
+import uuid
 from pathlib import Path
 
 # Ajouter la racine du projet au PYTHONPATH
@@ -12,6 +13,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.database import get_session
+from app.models import User
+from app.deps.auth import get_current_user
+from app.enums import UserRole
 from app import models  # ⚠️ CRUCIAL : charge Vehicule / Entretien
 
 # Engine SQLite de test (isolé)
@@ -45,17 +49,7 @@ def client():
 
 @pytest.fixture
 def session():
-    # DB SQLite isolée PAR TEST
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False,
-    )
-
-    SQLModel.metadata.create_all(engine)
-
-    with Session(engine) as session:
+    with Session(test_engine) as session:
         yield session
 
 
@@ -87,3 +81,37 @@ def create_vehicule(client, company):
         return response.json()
 
     return _create_vehicule
+
+
+# Création d'un user fictif
+@pytest.fixture
+def create_user(session):
+    def _create_user(role, company_id=1):
+        user = User(
+            email=f"{role.value}_{uuid.uuid4()}@test.com",
+            password_hash="fakehashed",
+            role=role,
+            company_id=company_id,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+
+    return _create_user
+
+
+# Authentification fictive d'un utilisateur
+@pytest.fixture
+def auth_client(client):
+    def _auth_client(user):
+
+        def override_get_current_user():
+            return user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        return client
+
+    yield _auth_client
+
+    app.dependency_overrides.pop(get_current_user, None)

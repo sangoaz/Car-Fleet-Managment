@@ -3,7 +3,7 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date as Date, datetime
 from typing import List, Optional
-from app.enums import EntretienType
+from app.enums import EntretienType, UserRole
 from app.services.alerts.base import Alert
 
 
@@ -177,12 +177,35 @@ class FuelStatsRead(BaseModel):
 
 
 # =========================
-# UTILISATEURS
-# =========================
-
-
-# =========================
 # ENTREPRISES
 # =========================
 class CreateCompany(BaseModel):
     name: str
+
+
+class GetCompany(BaseModel):
+    name: str
+
+
+# =========================
+# UTILISATEURS
+# =========================
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    role: UserRole = UserRole.DRIVER
+    company_id: int | None = None
+
+
+class UserRead(BaseModel):
+    id: int
+    email: str
+    role: UserRole
+    is_active: bool
+    company_id: int | None
+    created_at: datetime
+
+
+class UserUpdate(BaseModel):
+    email: str | None = None
+    role: UserRole | None = None

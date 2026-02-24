@@ -6,10 +6,11 @@ from typing import Optional
 from sqlalchemy import desc
 
 from app.database import get_session
-from app.enums import EntretienType
-from app.models import Vehicule, Entretien
+from app.enums import EntretienType, UserRole
+from app.models import Vehicule, Entretien, User
 from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
 from app.services.alerts import get_vehicle_alerts
+from app.deps.auth import require_roles, require_admin
 
 router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
 
@@ -47,6 +48,28 @@ def get_vehicule(
 
 
 # Afficher la liste des véhicules
+@router.get("/")
+def get_vehicules_list(
+    current_user: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.OWNER,
+            UserRole.MANAGER,
+            UserRole.DRIVER,
+        )
+    ),
+    session: Session = Depends(get_session),
+):
+    if current_user.role == UserRole.SUPER_ADMIN:
+        statement = select(Vehicule)
+    else:
+        statement = select(Vehicule).where(
+            Vehicule.company_id == current_user.company_id
+        )
+    # Ajouter plus tard les users DRIVER afin qu'ils puissent voir uniquement leurs véhicules
+
+    vehicules = session.exec(statement).all()
+    return vehicules
 
 
 # Mettre à jour un véhicule
@@ -132,3 +155,22 @@ def vehicule_overview(vehicule_id: int, session: Session = Depends(get_session))
         "last_entretiens": last_entretien,
         "last_controle_technique": last_ct,
     }
+
+
+# Assigner un véhicule
+@router.post("/{vehicule_id}/assign")
+def assign_vehicule(vehicule_id: int, session: Session = Depends(get_session)):
+
+    return None
+
+
+# Désassigner un véhicule
+@router.post("/{vehicule_id}/unassign")
+def unassign_vehicule(vehicule_id: int, session: Session = Depends(get_session)):
+    return None
+
+
+# Voir l'assignation active
+@router.get("/{vehicule_id}/assignment")
+def assignment_vehicule(vehicule_id: int, session: Session = Depends(get_session)):
+    return None
