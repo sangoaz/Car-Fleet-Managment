@@ -1,3 +1,5 @@
+"Gestion des permissions du CRUD utilisateur"
+
 from app.enums import UserRole
 from app.models import User
 
@@ -35,6 +37,30 @@ def can_modify_user(current_user: User, target_user: User) -> bool:
 
 # Fonction derterminant quel user peut supprimer quel users
 def can_delete_user(current_user: User, target_user: User) -> bool:
+
+    # Un user ne peut pas se supprimer lui-même (bonne pratique)
+    if current_user.id == target_user.id:
+        return False
+
+    # SUPER_ADMIN peut tout supprimer
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return True
+
+    # OWNER
+    if current_user.role == UserRole.OWNER:
+
+        # Ne peut pas supprimer un SUPER_ADMIN
+        if target_user.role == UserRole.SUPER_ADMIN:
+            return False
+
+        # Doit être dans la même company
+        return current_user.company_id == target_user.company_id
+
+    return False
+
+
+# Fonction derterminant quel user peut desactiver quel users
+def can_deactivate_user(current_user: User, target_user: User) -> bool:
 
     # Un user ne peut pas se supprimer lui-même (bonne pratique)
     if current_user.id == target_user.id:

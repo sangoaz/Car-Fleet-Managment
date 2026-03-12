@@ -209,3 +209,20 @@ class UserRead(BaseModel):
 class UserUpdate(BaseModel):
     email: str | None = None
     role: UserRole | None = None
+
+
+# =========================
+# ASSIGNEMENT D'UN VEHICULE
+# =========================
+
+
+class VehiculeAssignmentCreate(BaseModel):
+    driver_id: int
+
+
+class VehiculeAssignmentRead(BaseModel):
+    id: int
+    vehicule_id: int
+    user_id: int
+    start_date: datetime
+    end_date: datetime | None

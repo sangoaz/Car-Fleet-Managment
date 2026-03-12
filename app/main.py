@@ -9,6 +9,7 @@ from app.routers.alerts import router as alerts_router
 from app.routers.fuel import router as fuel_router
 from app.routers.company import router as company_router
 from app.routers.users import router as users_router
+from app.routers.vehicule_assignement import router as assignement_router
 
 # ---------------------------------------------------------
 # Point d'entrée de l'application FastAPI
@@ -44,3 +45,4 @@ app.include_router(alerts_router)
 app.include_router(fuel_router)
 app.include_router(company_router)
 app.include_router(users_router)
+app.include_router(assignement_router)

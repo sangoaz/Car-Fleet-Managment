@@ -2,15 +2,20 @@
 
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlmodel import select, func, Session
-from typing import Optional
 from sqlalchemy import desc
 
 from app.database import get_session
 from app.enums import EntretienType, UserRole
 from app.models import Vehicule, Entretien, User
+from app.permissions.vehicules import (
+    can_create_vehicle,
+    can_delete_vehicle,
+    can_modify_vehicle,
+    can_read_vehicle,
+)
 from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
 from app.services.alerts import get_vehicle_alerts
-from app.deps.auth import require_roles, require_admin
+from app.deps.auth import require_roles, require_admin, get_current_user
 
 router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
 
@@ -20,18 +25,31 @@ router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
 def create_vehicule(
     vehicule: Create_vehicule,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
+    # SUPER_ADMIN peut choisir la company
+    if current_user.role == UserRole.SUPER_ADMIN:
+        target_company_id = vehicule.company_id
+    else:
+        # OWNER / MANAGER / DRIVER → forcé à sa company
+        target_company_id = current_user.company_id
+
+    if not can_create_vehicle(current_user, target_company_id):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
     new_vehicule = Vehicule(
         plate=vehicule.plate,
         model=vehicule.model,
         km=vehicule.km,
         buy_date=vehicule.buy_date,
         first_registration_date=vehicule.first_registration_date,
-        company_id=vehicule.company_id,
+        company_id=target_company_id,
     )
+
     session.add(new_vehicule)
     session.commit()
     session.refresh(new_vehicule)
+
     return new_vehicule
 
 
@@ -40,24 +58,22 @@ def create_vehicule(
 def get_vehicule(
     vehicule_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    if not can_read_vehicle(current_user, vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
     return vehicule
 
 
 # Afficher la liste des véhicules
 @router.get("/")
 def get_vehicules_list(
-    current_user: User = Depends(
-        require_roles(
-            UserRole.SUPER_ADMIN,
-            UserRole.OWNER,
-            UserRole.MANAGER,
-            UserRole.DRIVER,
-        )
-    ),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     if current_user.role == UserRole.SUPER_ADMIN:
@@ -78,10 +94,13 @@ def patch_vehicule(
     vehicule_id: int,
     vehicule: Update_vehicule,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     existing_vehicule = session.get(Vehicule, vehicule_id)
     if not existing_vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    if not can_modify_vehicle(current_user, existing_vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     if vehicule.plate is not None:
         existing_vehicule.plate = vehicule.plate
@@ -104,10 +123,15 @@ def patch_vehicule(
 def delete_vehicule(
     vehicule_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     existing_vehicule = session.get(Vehicule, vehicule_id)
+
     if not existing_vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    if not can_delete_vehicle(current_user, existing_vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     if existing_vehicule.entretiens:
         raise HTTPException(
@@ -122,7 +146,11 @@ def delete_vehicule(
 
 # Overview d'un véhicule
 @router.get("/{vehicule_id}/overview", response_model=VehiculeOverviewResponse)
-def vehicule_overview(vehicule_id: int, session: Session = Depends(get_session)):
+def vehicule_overview(
+    vehicule_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
 
     # Vérifier si le véhicule existe
     vehicule = session.get(Vehicule, vehicule_id)
@@ -155,22 +183,3 @@ def vehicule_overview(vehicule_id: int, session: Session = Depends(get_session))
         "last_entretiens": last_entretien,
         "last_controle_technique": last_ct,
     }
-
-
-# Assigner un véhicule
-@router.post("/{vehicule_id}/assign")
-def assign_vehicule(vehicule_id: int, session: Session = Depends(get_session)):
-
-    return None
-
-
-# Désassigner un véhicule
-@router.post("/{vehicule_id}/unassign")
-def unassign_vehicule(vehicule_id: int, session: Session = Depends(get_session)):
-    return None
-
-
-# Voir l'assignation active
-@router.get("/{vehicule_id}/assignment")
-def assignment_vehicule(vehicule_id: int, session: Session = Depends(get_session)):
-    return None

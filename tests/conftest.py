@@ -2,7 +2,6 @@ import sys
 import uuid
 from pathlib import Path
 
-# Ajouter la racine du projet au PYTHONPATH
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 
@@ -10,35 +9,34 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy.pool import StaticPool
+from datetime import date
 
 from app.main import app
 from app.database import get_session
-from app.models import User
+from app.models import User, Company, Vehicule, Entretien
 from app.deps.auth import get_current_user
-from app.enums import UserRole
-from app import models  # ⚠️ CRUCIAL : charge Vehicule / Entretien
+from app.enums import UserRole, EntretienType
+from app import models
 
-# Engine SQLite de test (isolé)
+
 TEST_DATABASE_URL = "sqlite://"
 
 test_engine = create_engine(
     TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,  # 🔥 CRITIQUE
+    poolclass=StaticPool,
     echo=False,
 )
 
 
 @pytest.fixture(scope="session")
 def client():
-    # ✅ créer les tables sur SQLite
     SQLModel.metadata.create_all(test_engine)
 
     def get_test_session():
         with Session(test_engine) as session:
             yield session
 
-    # 🔁 override de la dépendance FastAPI
     app.dependency_overrides[get_session] = get_test_session
 
     with TestClient(app) as client:
@@ -53,40 +51,32 @@ def session():
         yield session
 
 
-# Creation d'une entreprise fictive
 @pytest.fixture
-def company(client):
-    response = client.post(
-        "/companies",
-        json={"name": "Test Company"},
+def company_db(session):
+    company = Company(name="Test Company")
+    session.add(company)
+    session.commit()
+    session.refresh(company)
+    return company
+
+
+@pytest.fixture
+def vehicule_db(session, company_db):
+    vehicule = Vehicule(
+        plate="TEST-001",
+        model="Test Model",
+        km=1000,
+        company_id=company_db.id,
     )
-    assert response.status_code == 201
-    return response.json()
+    session.add(vehicule)
+    session.commit()
+    session.refresh(vehicule)
+    return vehicule
 
 
-# Creation d'un véhicule fictif dans une company
-@pytest.fixture
-def create_vehicule(client, company):
-    def _create_vehicule(**overrides):
-        data = {
-            "plate": "TEST-001",
-            "model": "Test Model",
-            "km": 1000,
-            "company_id": company["id"],  # 🔴 LA LIGNE CRITIQUE
-        }
-        data.update(overrides)
-
-        response = client.post("/vehicules", json=data)
-        assert response.status_code == 201
-        return response.json()
-
-    return _create_vehicule
-
-
-# Création d'un user fictif
 @pytest.fixture
 def create_user(session):
-    def _create_user(role, company_id=1):
+    def _create_user(role, company_id=None):
         user = User(
             email=f"{role.value}_{uuid.uuid4()}@test.com",
             password_hash="fakehashed",
@@ -101,7 +91,6 @@ def create_user(session):
     return _create_user
 
 
-# Authentification fictive d'un utilisateur
 @pytest.fixture
 def auth_client(client):
     def _auth_client(user):
@@ -115,3 +104,24 @@ def auth_client(client):
     yield _auth_client
 
     app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def admin_client(auth_client, create_user):
+    admin = create_user(UserRole.SUPER_ADMIN, company_id=None)
+    return auth_client(admin)
+
+
+@pytest.fixture
+def entretien_db(session, vehicule_db):
+    entretien = Entretien(
+        vehicule_id=vehicule_db.id,
+        type=EntretienType.VIDANGE,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+        cost=100,
+    )
+    session.add(entretien)
+    session.commit()
+    session.refresh(entretien)
+    return entretien

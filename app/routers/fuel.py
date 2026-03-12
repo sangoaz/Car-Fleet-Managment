@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import FuelFill, Vehicule
+from app.models import FuelFill, Vehicule, User
 from app.schemas import FuelFillCreate, FuelFillRead, FuelFillUpdate, FuelStatsRead
 from app.services.fuel_services import (
     validate_km,
@@ -10,6 +10,13 @@ from app.services.fuel_services import (
     is_last_fuel_fill,
 )
 from app.services.fuel_stats import compute_fuel_stats
+from app.deps.auth import get_current_user
+from app.permissions.fuel import (
+    can_create_fuelfill,
+    can_delete_fuelfill,
+    can_modify_fuelfill,
+    can_read_fuelfill,
+)
 
 router = APIRouter(prefix="/vehicules", tags=["Fuel"])
 
@@ -20,11 +27,16 @@ def create_fuel_fill(
     vehicule_id: int,
     fuel: FuelFillCreate,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     # Vérifier que le véhicule existe
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    # Vérification permissions
+    if not can_create_fuelfill(current_user, vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     validate_km(session, vehicule_id, fuel.km)
 
@@ -52,11 +64,16 @@ def create_fuel_fill(
 def list_fuel_fills(
     vehicule_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     # Vérifier que le véhicule existe
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    # Vérification permissions
+    if not can_read_fuelfill(current_user, vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     stmt = (
         select(FuelFill)
@@ -73,13 +90,23 @@ def get_fuel_fill(
     vehicule_id: int,
     fuel_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
+    # Vérifier si le véhicule existe
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404)
+
     fuel = session.get(FuelFill, fuel_id)
 
     if not fuel or fuel.vehicule_id != vehicule_id:
         raise HTTPException(
             status_code=404, detail="Plein introuvable pour ce véhicule"
         )
+
+    # Vérification permissions
+    if not can_read_fuelfill(current_user, vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     return fuel
 
@@ -91,13 +118,22 @@ def update_fuel_fill(
     fuel_id: int,
     update: FuelFillUpdate,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
+    # Vérifier si le véhicule existe
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404)
+
     fuel = session.get(FuelFill, fuel_id)
 
     if not fuel or fuel.vehicule_id != vehicule_id:
         raise HTTPException(
             status_code=404, detail="Plein introuvable pour ce véhicule"
         )
+
+    if not can_modify_fuelfill(current_user, fuel):
+        raise HTTPException(status_code=403)
 
     validate_fuel_fill_update(session, fuel, update)
 
@@ -116,13 +152,21 @@ def delete_fuel_fill(
     vehicule_id: int,
     fuel_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
+    vehicule = session.get(Vehicule, vehicule_id)
+    if not vehicule:
+        raise HTTPException(status_code=404)
+
     fuel = session.get(FuelFill, fuel_id)
 
     if not fuel or fuel.vehicule_id != vehicule_id:
         raise HTTPException(
             status_code=404, detail="Plein introuvable pour ce véhicule"
         )
+
+    if not can_delete_fuelfill(current_user, fuel):
+        raise HTTPException(status_code=403)
 
     if not is_last_fuel_fill(session, fuel):
         raise HTTPException(
@@ -138,5 +182,15 @@ def delete_fuel_fill(
 def get_fuel_stats(
     vehicule_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
+
+    vehicule = session.get(Vehicule, vehicule_id)
+
+    if not vehicule:
+        raise HTTPException(status_code=404)
+
+    if not can_read_fuelfill(current_user, vehicule):
+        raise HTTPException(status_code=403)
+
     return compute_fuel_stats(session, vehicule_id)

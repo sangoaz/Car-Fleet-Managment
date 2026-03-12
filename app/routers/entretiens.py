@@ -6,10 +6,18 @@ from sqlalchemy import desc
 from typing import Optional
 
 from app.database import get_session
-from app.models import Entretien, Vehicule
+from app.models import Entretien, Vehicule, User
 from app.schemas import Create_entretien, PaginatedEntretiens, Update_entretien
-from app.enums import EntretienType
+from app.enums import EntretienType, UserRole
 from app.services.entretien_validation import validate_entretien_coherence
+from app.permissions.vehicules import can_read_vehicle
+from app.permissions.entretiens import (
+    can_create_entretien,
+    can_delete_entretien,
+    can_modify_entretien,
+    can_read_entretien,
+)
+from app.deps.auth import get_current_user
 
 router = APIRouter(prefix="/vehicules", tags=["entretiens"])
 
@@ -20,11 +28,16 @@ def create_entretien(
     vehicule_id: int,
     entretien: Create_entretien,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     # Vérifier que le véhicule existe
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    # Vérification permissions
+    if not can_create_entretien(current_user, vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     # Validation métier date ↔ km (même type)
     validate_entretien_coherence(
@@ -50,14 +63,12 @@ def create_entretien(
     return new_entretien
 
 
-# Afficher les entretiens d'un véhicule
 @router.get("/{vehicule_id}/entretiens", response_model=PaginatedEntretiens)
 def get_entretiens(
     vehicule_id: int,
     session: Session = Depends(get_session),
-    entretien_type: Optional[EntretienType] = Query(
-        None, description="Type d'entretien"
-    ),
+    current_user: User = Depends(get_current_user),
+    entretien_type: Optional[EntretienType] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     order: str = Query("date_desc"),
@@ -67,7 +78,11 @@ def get_entretiens(
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
-    # total count (sans pagination)
+    # 🔐 Vérification permissions
+    if not can_read_vehicle(current_user, vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # total count
     total_stmt = select(func.count()).where(Entretien.vehicule_id == vehicule_id)
 
     if entretien_type:
@@ -99,22 +114,24 @@ def patch_entretien(
     entretien_id: int,
     entretien: Update_entretien,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     # Vérifier véhicule
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+        raise HTTPException(404)
 
     # Vérifier entretien
     existing_entretien = session.get(Entretien, entretien_id)
     if not existing_entretien:
-        raise HTTPException(status_code=404, detail="Entretien introuvable")
+        raise HTTPException(404)
 
     if existing_entretien.vehicule_id != vehicule_id:
-        raise HTTPException(
-            status_code=404,
-            detail="Cet entretien n'appartient pas à ce véhicule",
-        )
+        raise HTTPException(404)
+
+    # 🔐 Permission
+    if not can_modify_entretien(current_user, existing_entretien):
+        raise HTTPException(403)
 
     # 🔑 Valeurs finales
     final_date = (
@@ -128,7 +145,7 @@ def patch_entretien(
     if final_km <= 0:
         raise HTTPException(status_code=400, detail="Kilométrage invalide")
 
-    # 🔍 Validation métier date ↔ km
+    # 🔍 Validation métier
     validate_entretien_coherence(
         session,
         vehicule_id,
@@ -138,7 +155,7 @@ def patch_entretien(
         exclude_entretien_id=entretien_id,
     )
 
-    # ✅ Appliquer les modifications
+    # ✅ Appliquer modifications
     existing_entretien.date = final_date
     existing_entretien.km = final_km
     existing_entretien.type = final_type
@@ -148,7 +165,7 @@ def patch_entretien(
     if entretien.comment is not None:
         existing_entretien.comment = entretien.comment
 
-    # 🔁 Mise à jour km véhicule si nécessaire
+    # 🔁 Mise à jour km véhicule
     if final_km > vehicule.km:
         vehicule.km = final_km
 
@@ -159,28 +176,32 @@ def patch_entretien(
     return existing_entretien
 
 
-# Supprimer un entretien
 @router.delete("/{vehicule_id}/entretiens/{entretien_id}", status_code=204)
 def delete_entretien(
     vehicule_id: int,
     entretien_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),  # 🔐 AJOUT
 ):
-    # Vérifier le véhicule
+    # Vérifier véhicule
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
-    # Vérifier l'entretien
+    # Vérifier entretien
     entretien = session.get(Entretien, entretien_id)
     if not entretien:
         raise HTTPException(status_code=404, detail="Entretien introuvable")
 
-    # Vérifier cohérence
     if entretien.vehicule_id != vehicule_id:
         raise HTTPException(
-            status_code=404, detail="Cet entretien n'appartient pas à ce véhicule"
+            status_code=404,
+            detail="Cet entretien n'appartient pas à ce véhicule",
         )
+
+    # 🔐 Vérification permissions
+    if not can_delete_entretien(current_user, entretien):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     session.delete(entretien)
     session.commit()

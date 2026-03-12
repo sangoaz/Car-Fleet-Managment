@@ -56,6 +56,7 @@ class Vehicule(SQLModel, table=True):
 
     entretiens: list["Entretien"] = Relationship(back_populates="vehicule")
     fuel_fills: list["FuelFill"] = Relationship(back_populates="vehicule")
+    assignments: list["VehiculeAssignment"] = Relationship(back_populates="vehicule")
 
 
 # Table des Entretiens
@@ -100,19 +101,25 @@ class User(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    vehicule_assignments: list["VehiculeAssignment"] = Relationship(
+        back_populates="user"
+    )
+
 
 # Table des assignements de véhicules
 class VehiculeAssignment(SQLModel, table=True):
+    __tablename__ = "vehicule_assignment"
+
     id: int | None = Field(default=None, primary_key=True)
 
     vehicule_id: int = Field(foreign_key="vehicule.id", index=True)
     user_id: int = Field(foreign_key="user.id", index=True)
 
-    start_date: datetime = Field(default_factory=datetime.utcnow)
-    end_date: datetime | None = None  # null = assignation active
+    start_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    end_date: datetime | None = None  # None = assignation active
 
-    vehicule: "Vehicule" = Relationship()
-    user: "User" = Relationship()
+    vehicule: "Vehicule" = Relationship(back_populates="assignments")
+    user: "User" = Relationship(back_populates="vehicule_assignments")
 
 
 # Table des incidents

@@ -12,6 +12,7 @@ from app.deps.auth import require_roles, require_admin
 from app.security import hash_password
 from app.permissions.users import (
     can_create_user,
+    can_deactivate_user,
     can_delete_user,
     can_modify_user,
     can_reactivate_user,
@@ -128,7 +129,7 @@ def deactivate_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if not can_delete_user(current_user, user):
+    if not can_deactivate_user(current_user, user):
         raise HTTPException(status_code=403)
 
     user.is_active = False

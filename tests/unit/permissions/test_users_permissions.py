@@ -6,6 +6,7 @@ from app.permissions.users import (
     can_modify_user,
     can_delete_user,
     can_reactivate_user,
+    can_deactivate_user,
 )
 
 
@@ -112,6 +113,47 @@ def test_can_delete_user(current_role, target_role, same_company, same_user, exp
     target_user.id = 1 if same_user else 2
 
     assert can_delete_user(current_user, target_user) is expected
+
+
+@pytest.mark.parametrize(
+    "current_role, target_role, same_company, same_user, expected",
+    [
+        # ---------------- SUPER_ADMIN ----------------
+        (UserRole.SUPER_ADMIN, UserRole.DRIVER, True, False, True),
+        (UserRole.SUPER_ADMIN, UserRole.OWNER, False, False, True),
+        (UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN, False, False, True),
+        # auto suppression
+        (UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN, True, True, False),
+        # ---------------- OWNER ----------------
+        # même company
+        (UserRole.OWNER, UserRole.DRIVER, True, False, True),
+        (UserRole.OWNER, UserRole.MANAGER, True, False, True),
+        # autre company
+        (UserRole.OWNER, UserRole.DRIVER, False, False, False),
+        # ne peut pas supprimer SUPER_ADMIN
+        (UserRole.OWNER, UserRole.SUPER_ADMIN, True, False, False),
+        # auto suppression
+        (UserRole.OWNER, UserRole.OWNER, True, True, False),
+        # ---------------- MANAGER ----------------
+        (UserRole.MANAGER, UserRole.DRIVER, True, False, False),
+        # ---------------- DRIVER ----------------
+        (UserRole.DRIVER, UserRole.DRIVER, True, False, False),
+    ],
+)
+def test_can_deactivate_user(
+    current_role, target_role, same_company, same_user, expected
+):
+    company_current = 1
+    company_target = 1 if same_company else 2
+
+    current_user = make_user(current_role, company_current)
+    target_user = make_user(target_role, company_target)
+
+    # Simulation IDs réalistes
+    current_user.id = 1
+    target_user.id = 1 if same_user else 2
+
+    assert can_deactivate_user(current_user, target_user) is expected
 
 
 @pytest.mark.parametrize(

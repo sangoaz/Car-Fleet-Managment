@@ -13,6 +13,9 @@ from app.services.alerts.freins import check_freins_alert
 from app.services.alerts.revision import check_revision_alert
 from app.services.alerts.controle_technique import check_controle_technique_alert
 from app.services.alerts.fuel import compute_fuel_alerts
+from app.deps.auth import get_current_user
+from app.permissions.vehicules import can_read_vehicle
+from app.models import User
 
 router = APIRouter(
     prefix="/vehicules",
@@ -24,11 +27,15 @@ router = APIRouter(
 def get_vehicule_alerts(
     vehicule_id: int,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    # Vérifier que le véhicule existe
     vehicule = session.get(Vehicule, vehicule_id)
+
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    if not can_read_vehicle(current_user, vehicule):
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     alerts = []
 

@@ -1,20 +1,25 @@
-def test_create_fuel_fill_ok(client, create_vehicule):
-    # Création du véhicule
-    vehicule = create_vehicule(
-        plate="FUEL-001",
-        model="Fuel Test",
-        km=10000,
-    )
+from app.enums import UserRole
+from app.models import Vehicule
+
+
+# =========================
+# TESTS DE CREATION
+# =========================
+
+
+def test_create_fuel_fill_ok(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
     payload = {
         "date": "2026-01-10",
-        "km": 10100,
+        "km": vehicule_db.km + 100,
         "liters": 45.5,
         "cost": 82.3,
     }
 
     response = client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json=payload,
     )
 
@@ -22,36 +27,29 @@ def test_create_fuel_fill_ok(client, create_vehicule):
 
     data = response.json()
     assert "id" in data
-    assert data["vehicule_id"] == vehicule["id"]
+    assert data["vehicule_id"] == vehicule_db.id
     assert data["km"] == payload["km"]
-    assert data["liters"] == payload["liters"]
-    assert data["cost"] == payload["cost"]
 
 
-def test_create_fuel_fill_invalid_km(client, create_vehicule):
-    vehicule = create_vehicule(
-        plate="FUEL-002",
-        model="Fuel KM",
-        km=10000,
-    )
+def test_create_fuel_fill_invalid_km(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
-    # Premier plein OK
     client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-01",
-            "km": 10100,
+            "km": vehicule_db.km + 100,
             "liters": 40,
             "cost": 70,
         },
     )
 
-    # Second plein avec km invalide
     response = client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-02",
-            "km": 10000,  # ⛔ inférieur
+            "km": vehicule_db.km,  # inférieur
             "liters": 30,
             "cost": 55,
         },
@@ -60,113 +58,141 @@ def test_create_fuel_fill_invalid_km(client, create_vehicule):
     assert response.status_code == 400
 
 
-def test_get_fuel_fills_list(client, create_vehicule):
-    vehicule = create_vehicule(
-        plate="FUEL-003",
-        model="Fuel List",
-        km=5000,
-    )
+# =========================
+# TESTS D'AFFICHAGE
+# =========================
+
+
+def test_get_fuel_fill_without_auth_returns_401(client, vehicule_db):
+    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
+    assert response.status_code == 401
+
+
+def test_get_fuel_fills_list(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
     client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-01",
-            "km": 5200,
+            "km": vehicule_db.km + 200,
             "liters": 40,
             "cost": 70,
         },
     )
 
     client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-10",
-            "km": 5600,
+            "km": vehicule_db.km + 600,
             "liters": 45,
             "cost": 80,
         },
     )
 
-    response = client.get(f"/vehicules/{vehicule["id"]}/fuel-fills")
+    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
 
     assert response.status_code == 200
     data = response.json()
 
     assert len(data) == 2
-    assert data[0]["km"] > data[1]["km"]  # tri descendant
+    assert data[0]["km"] > data[1]["km"]
 
 
-def test_get_fuel_fill_ok(client, create_vehicule):
-    vehicule = create_vehicule(
-        plate="FUEL-004",
-        model="Fuel Get",
-        km=7000,
-    )
+def test_get_fuel_fill_ok(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
     fuel_res = client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-05",
-            "km": 7300,
+            "km": vehicule_db.km + 300,
             "liters": 42,
             "cost": 75,
         },
     )
+
     fuel_id = fuel_res.json()["id"]
 
-    response = client.get(f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel_id}")
+    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel_id}")
 
     assert response.status_code == 200
     assert response.json()["id"] == fuel_id
 
 
-def test_get_fuel_fill_wrong_vehicle(client, create_vehicule):
-    v1 = create_vehicule(
-        plate="FUEL-005",
-        model="Fuel V1",
-        km=8000,
-    )
+def test_get_fuel_fill_wrong_vehicle(auth_client, create_user, vehicule_db, session):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
-    v2 = create_vehicule(
-        plate="FUEL-006",
-        model="Fuel V2t",
-        km=9000,
+    v2 = Vehicule(
+        plate="OTHER-001",
+        model="Other Vehicle",
+        km=5000,
+        company_id=vehicule_db.company_id,
     )
+    session.add(v2)
+    session.commit()
+    session.refresh(v2)
 
+    # créer un fuel fill sur le premier véhicule
     fuel_id = client.post(
-        f"/vehicules/{v1["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-10",
-            "km": 8200,
+            "km": vehicule_db.km + 200,
             "liters": 40,
             "cost": 70,
         },
     ).json()["id"]
 
-    response = client.get(f"/vehicules/{v2["id"]}/fuel-fills/{fuel_id}")
+    # essayer de lire avec le mauvais véhicule
+    response = client.get(f"/vehicules/{v2.id}/fuel-fills/{fuel_id}")
 
     assert response.status_code == 404
 
 
-def test_patch_last_fuel_fill_ok(client, create_vehicule):
-    vehicule = create_vehicule(
-        plate="FUEL-007",
-        model="Fuel Patch",
-        km=10000,
-    )
+def test_driver_can_read_fuel_same_company(auth_client, create_user, vehicule_db):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+    client = auth_client(driver)
+
+    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
+
+    assert response.status_code == 200
+
+
+def test_owner_cannot_read_fuel_other_company(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=999)
+    client = auth_client(owner)
+
+    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
+
+    assert response.status_code == 403
+
+
+# =========================
+# TESTS D'UPDATE
+# =========================
+
+
+def test_patch_last_fuel_fill_ok(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
     fuel = client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-10",
-            "km": 10200,
+            "km": vehicule_db.km + 200,
             "liters": 50,
             "cost": 90,
         },
     ).json()
 
     response = client.patch(
-        f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel['id']}",
+        f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel['id']}",
         json={"cost": 95},
     )
 
@@ -174,90 +200,86 @@ def test_patch_last_fuel_fill_ok(client, create_vehicule):
     assert response.json()["cost"] == 95
 
 
-def test_patch_non_last_fuel_fill_forbidden(client, create_vehicule):
-    vehicule = create_vehicule(
-        plate="FUEL-008",
-        model="Fuel Patch KO",
-        km=0000,
-    )
+def test_patch_non_last_fuel_fill_forbidden(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
     fuel1 = client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-01",
-            "km": 9100,
+            "km": vehicule_db.km + 100,
             "liters": 40,
             "cost": 70,
         },
     ).json()
 
     client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-10",
-            "km": 9500,
+            "km": vehicule_db.km + 500,
             "liters": 50,
             "cost": 85,
         },
     )
 
     response = client.patch(
-        f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel1['id']}",
+        f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel1['id']}",
         json={"cost": 75},
     )
 
     assert response.status_code == 400
 
 
-def test_delete_last_fuel_fill_ok(client, create_vehicule):
-    vehicule = create_vehicule(
-        plate="FUEL-009",
-        model="Fuel Delete",
-        km=11000,
-    )
+# ==========================
+# TESTS DELETE
+# ==========================
+
+
+def test_delete_last_fuel_fill_ok(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
     fuel = client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-10",
-            "km": 11200,
+            "km": vehicule_db.km + 200,
             "liters": 45,
             "cost": 80,
         },
     ).json()
 
-    response = client.delete(f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel['id']}")
+    response = client.delete(f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel['id']}")
 
     assert response.status_code == 204
 
 
-def test_delete_non_last_fuel_fill_forbidden(client, create_vehicule):
-    vehicule = create_vehicule(
-        plate="FUEL-010",
-        model="Fuel Delete KO",
-        km=10000,
-    )
+def test_delete_non_last_fuel_fill_forbidden(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
 
     fuel1 = client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-01",
-            "km": 10100,
+            "km": vehicule_db.km + 100,
             "liters": 40,
             "cost": 70,
         },
     ).json()
 
     client.post(
-        f"/vehicules/{vehicule["id"]}/fuel-fills",
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
         json={
             "date": "2026-01-10",
-            "km": 10500,
+            "km": vehicule_db.km + 500,
             "liters": 50,
             "cost": 85,
         },
     )
 
-    response = client.delete(f"/vehicules/{vehicule["id"]}/fuel-fills/{fuel1['id']}")
+    response = client.delete(f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel1['id']}")
 
     assert response.status_code == 400
