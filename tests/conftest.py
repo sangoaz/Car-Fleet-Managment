@@ -16,6 +16,7 @@ from app.database import get_session
 from app.models import User, Company, Vehicule, Entretien
 from app.deps.auth import get_current_user
 from app.enums import UserRole, EntretienType
+from app.security import hash_password
 from app import models
 
 
