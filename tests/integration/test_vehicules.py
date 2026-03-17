@@ -1,5 +1,6 @@
 import pytest
 from app.enums import UserRole
+from app.models import VehiculeAssignment, Vehicule
 
 # =========================
 # TESTS DE CREATION
@@ -143,6 +144,125 @@ def test_owner_manager_get_vehicule(auth_client, create_user, vehicule_db, role)
     assert data["plate"] == vehicule_db.plate
     assert data["model"] == vehicule_db.model
     assert data["km"] == vehicule_db.km
+
+
+def test_driver_can_access_assigned_vehicle(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    assignment = VehiculeAssignment(
+        vehicule_id=vehicule_db.id,
+        user_id=driver.id,
+    )
+
+    session.add(assignment)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}")
+
+    assert res.status_code == 200
+
+
+def test_driver_cannot_access_unassigned_vehicle(auth_client, create_user, vehicule_db):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}")
+
+    assert res.status_code == 403
+
+
+def test_driver_vehicle_list_only_assigned(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    assignment = VehiculeAssignment(
+        vehicule_id=vehicule_db.id,
+        user_id=driver.id,
+    )
+
+    session.add(assignment)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get("/vehicules/")
+
+    data = res.json()
+
+    assert len(data) == 1
+    assert data[0]["id"] == vehicule_db.id
+
+
+def test_driver_sees_only_assigned_vehicles(
+    auth_client, create_user, company_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=company_db.id)
+
+    vehicule1 = Vehicule(
+        plate="A",
+        model="Test",
+        km=1000,
+        company_id=company_db.id,
+    )
+
+    vehicule2 = Vehicule(
+        plate="B",
+        model="Test",
+        km=1000,
+        company_id=company_db.id,
+    )
+
+    session.add_all([vehicule1, vehicule2])
+    session.commit()
+
+    # Assigner seulement vehicule1
+    assignment = VehiculeAssignment(
+        vehicule_id=vehicule1.id,
+        user_id=driver.id,
+    )
+
+    session.add(assignment)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get("/vehicules/")
+
+    assert res.status_code == 200
+
+    data = res.json()
+
+    assert len(data) == 1
+    assert data[0]["id"] == vehicule1.id
+
+
+def test_driver_sees_no_vehicles_if_not_assigned(
+    auth_client, create_user, company_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=company_db.id)
+
+    vehicule = Vehicule(
+        plate="A",
+        model="Test",
+        km=1000,
+        company_id=company_db.id,
+    )
+
+    session.add(vehicule)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get("/vehicules/")
+
+    assert res.status_code == 200
+    assert res.json() == []
 
 
 def test_get_vehicule_not_found(auth_client, create_user):

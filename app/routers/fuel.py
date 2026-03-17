@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.database import get_session
+from app.enums import UserRole
 from app.models import FuelFill, Vehicule, User
 from app.schemas import FuelFillCreate, FuelFillRead, FuelFillUpdate, FuelStatsRead
 from app.services.fuel_services import (
@@ -10,6 +11,7 @@ from app.services.fuel_services import (
     is_last_fuel_fill,
 )
 from app.services.fuel_stats import compute_fuel_stats
+from app.services.vehicule_assignment_service import is_driver_assigned
 from app.deps.auth import get_current_user
 from app.permissions.fuel import (
     can_create_fuelfill,
@@ -35,7 +37,12 @@ def create_fuel_fill(
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
     # Vérification permissions
-    if not can_create_fuelfill(current_user, vehicule):
+    is_assigned = False
+
+    if current_user.role == UserRole.DRIVER:
+        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+
+    if not can_create_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
     validate_km(session, vehicule_id, fuel.km)
@@ -72,7 +79,12 @@ def list_fuel_fills(
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
     # Vérification permissions
-    if not can_read_fuelfill(current_user, vehicule):
+    is_assigned = False
+
+    if current_user.role == UserRole.DRIVER:
+        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+
+    if not can_read_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
     stmt = (
@@ -105,7 +117,12 @@ def get_fuel_fill(
         )
 
     # Vérification permissions
-    if not can_read_fuelfill(current_user, vehicule):
+    is_assigned = False
+
+    if current_user.role == UserRole.DRIVER:
+        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+
+    if not can_read_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
     return fuel
@@ -190,7 +207,12 @@ def get_fuel_stats(
     if not vehicule:
         raise HTTPException(status_code=404)
 
-    if not can_read_fuelfill(current_user, vehicule):
+    is_assigned = False
+
+    if current_user.role == UserRole.DRIVER:
+        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+
+    if not can_read_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403)
 
     return compute_fuel_stats(session, vehicule_id)

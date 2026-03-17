@@ -6,7 +6,7 @@ from sqlalchemy import desc
 
 from app.database import get_session
 from app.enums import EntretienType, UserRole
-from app.models import Vehicule, Entretien, User
+from app.models import Vehicule, Entretien, User, VehiculeAssignment
 from app.permissions.vehicules import (
     can_create_vehicle,
     can_delete_vehicle,
@@ -15,6 +15,10 @@ from app.permissions.vehicules import (
 )
 from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
 from app.services.alerts import get_vehicle_alerts
+from app.services.vehicule_assignment_service import (
+    is_driver_assigned,
+    get_driver_vehicules,
+)
 from app.deps.auth import require_roles, require_admin, get_current_user
 
 router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
@@ -64,7 +68,12 @@ def get_vehicule(
     if not vehicule:
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
-    if not can_read_vehicle(current_user, vehicule):
+    is_assigned = False
+
+    if current_user.role == UserRole.DRIVER:
+        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+
+    if not can_read_vehicle(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
     return vehicule
@@ -78,11 +87,14 @@ def get_vehicules_list(
 ):
     if current_user.role == UserRole.SUPER_ADMIN:
         statement = select(Vehicule)
-    else:
+    elif current_user.role in [UserRole.OWNER, UserRole.MANAGER]:
         statement = select(Vehicule).where(
             Vehicule.company_id == current_user.company_id
         )
-    # Ajouter plus tard les users DRIVER afin qu'ils puissent voir uniquement leurs véhicules
+    elif current_user.role == UserRole.DRIVER:
+        return get_driver_vehicules(session, current_user.id)
+    else:
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     vehicules = session.exec(statement).all()
     return vehicules
@@ -152,19 +164,28 @@ def vehicule_overview(
     current_user: User = Depends(get_current_user),
 ):
 
-    # Vérifier si le véhicule existe
     vehicule = session.get(Vehicule, vehicule_id)
     if not vehicule:
         raise HTTPException(status_code=404, detail="Vehicule introuvable")
 
-    # Derniers entretiens (tous types)
+    # Vérifier si le driver est assigné
+    is_assigned = False
+
+    if current_user.role == UserRole.DRIVER:
+        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+
+    if not can_read_vehicle(current_user, vehicule, is_assigned):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # Derniers entretiens
     stmt_entretiens = (
         select(Entretien)
         .where(Entretien.vehicule_id == vehicule_id)
         .order_by(desc(Entretien.date))
         .limit(5)
     )
-    last_entretien = session.scalars(stmt_entretiens).all()
+
+    last_entretiens = session.exec(stmt_entretiens).all()
 
     # Dernier contrôle technique
     stmt_ct = (
@@ -176,10 +197,11 @@ def vehicule_overview(
         .order_by(desc(Entretien.date))
         .limit(1)
     )
-    last_ct = session.scalars(stmt_ct).first()
+
+    last_ct = session.exec(stmt_ct).first()
 
     return {
         "vehicule": vehicule,
-        "last_entretiens": last_entretien,
+        "last_entretiens": last_entretiens,
         "last_controle_technique": last_ct,
     }

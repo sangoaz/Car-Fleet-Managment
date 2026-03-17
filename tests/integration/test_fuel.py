@@ -1,5 +1,7 @@
 from app.enums import UserRole
-from app.models import Vehicule
+from app.models import Vehicule, VehiculeAssignment, FuelFill
+
+from datetime import date, datetime, UTC
 
 
 # =========================
@@ -56,6 +58,55 @@ def test_create_fuel_fill_invalid_km(auth_client, create_user, vehicule_db):
     )
 
     assert response.status_code == 400
+
+
+def test_driver_can_create_fuel_fill_if_assigned(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    session.add(
+        VehiculeAssignment(
+            vehicule_id=vehicule_db.id,
+            user_id=driver.id,
+        )
+    )
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.post(
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
+        json={
+            "date": str(date.today()),
+            "km": vehicule_db.km + 100,
+            "liters": 40,
+            "cost": 60,
+        },
+    )
+
+    assert res.status_code == 201
+    assert res.json()["vehicule_id"] == vehicule_db.id
+
+
+def test_driver_cannot_create_fuel_fill_if_not_assigned(
+    auth_client, create_user, vehicule_db
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    client = auth_client(driver)
+
+    res = client.post(
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
+        json={
+            "date": str(date.today()),
+            "km": vehicule_db.km + 100,
+            "liters": 40,
+            "cost": 60,
+        },
+    )
+
+    assert res.status_code == 403
 
 
 # =========================
@@ -154,15 +205,6 @@ def test_get_fuel_fill_wrong_vehicle(auth_client, create_user, vehicule_db, sess
     assert response.status_code == 404
 
 
-def test_driver_can_read_fuel_same_company(auth_client, create_user, vehicule_db):
-    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
-    client = auth_client(driver)
-
-    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
-
-    assert response.status_code == 200
-
-
 def test_owner_cannot_read_fuel_other_company(auth_client, create_user, vehicule_db):
     owner = create_user(UserRole.OWNER, company_id=999)
     client = auth_client(owner)
@@ -170,6 +212,92 @@ def test_owner_cannot_read_fuel_other_company(auth_client, create_user, vehicule
     response = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
 
     assert response.status_code == 403
+
+
+def test_driver_can_read_assigned_vehicle_fuel_fills(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    # Assignation
+    session.add(
+        VehiculeAssignment(
+            vehicule_id=vehicule_db.id,
+            user_id=driver.id,
+        )
+    )
+
+    # Fuel fill
+    fuel = FuelFill(
+        vehicule_id=vehicule_db.id,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+        liters=40,
+        cost=60,
+    )
+    session.add(fuel)
+
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
+
+    assert res.status_code == 200
+    assert len(res.json()) == 1
+
+
+def test_driver_cannot_read_unassigned_vehicle_fuel_fills(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    fuel = FuelFill(
+        vehicule_id=vehicule_db.id,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+        liters=40,
+        cost=60,
+    )
+    session.add(fuel)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
+
+    assert res.status_code == 403
+
+
+def test_driver_cannot_access_after_unassignment(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    session.add(
+        VehiculeAssignment(
+            vehicule_id=vehicule_db.id,
+            user_id=driver.id,
+            end_date=datetime.now(UTC),
+        )
+    )
+
+    fuel = FuelFill(
+        vehicule_id=vehicule_db.id,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+        liters=40,
+        cost=60,
+    )
+    session.add(fuel)
+
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}/fuel-fills")
+
+    assert res.status_code == 403
 
 
 # =========================
@@ -232,6 +360,29 @@ def test_patch_non_last_fuel_fill_forbidden(auth_client, create_user, vehicule_d
     assert response.status_code == 400
 
 
+def test_driver_cannot_update_fuel_fill(auth_client, create_user, vehicule_db, session):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    fuel = FuelFill(
+        vehicule_id=vehicule_db.id,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+        liters=40,
+        cost=60,
+    )
+    session.add(fuel)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.patch(
+        f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel.id}",
+        json={"liters": 50},
+    )
+
+    assert res.status_code == 403
+
+
 # ==========================
 # TESTS DELETE
 # ==========================
@@ -283,3 +434,23 @@ def test_delete_non_last_fuel_fill_forbidden(auth_client, create_user, vehicule_
     response = client.delete(f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel1['id']}")
 
     assert response.status_code == 400
+
+
+def test_driver_cannot_delete_fuel_fill(auth_client, create_user, vehicule_db, session):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    fuel = FuelFill(
+        vehicule_id=vehicule_db.id,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+        liters=40,
+        cost=60,
+    )
+    session.add(fuel)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.delete(f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel.id}")
+
+    assert res.status_code == 403

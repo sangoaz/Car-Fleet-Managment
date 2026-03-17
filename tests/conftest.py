@@ -29,9 +29,13 @@ test_engine = create_engine(
 )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_database():
+    SQLModel.metadata.create_all(test_engine)
+
+
 @pytest.fixture(scope="session")
 def client():
-    SQLModel.metadata.create_all(test_engine)
 
     def get_test_session():
         with Session(test_engine) as session:

@@ -10,6 +10,7 @@ from app.models import Entretien, Vehicule, User
 from app.schemas import Create_entretien, PaginatedEntretiens, Update_entretien
 from app.enums import EntretienType, UserRole
 from app.services.entretien_validation import validate_entretien_coherence
+from app.services.vehicule_assignment_service import is_driver_assigned
 from app.permissions.vehicules import can_read_vehicle
 from app.permissions.entretiens import (
     can_create_entretien,
@@ -79,7 +80,12 @@ def get_entretiens(
         raise HTTPException(status_code=404, detail="Véhicule introuvable")
 
     # 🔐 Vérification permissions
-    if not can_read_vehicle(current_user, vehicule):
+    is_assigned = False
+
+    if current_user.role == UserRole.DRIVER:
+        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+
+    if not can_read_vehicle(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
     # total count

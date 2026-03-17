@@ -2,7 +2,8 @@ import pytest
 from datetime import date
 
 from app.enums import UserRole, EntretienType
-from app.models import Entretien, Vehicule
+from app.models import Entretien, Vehicule, VehiculeAssignment
+from datetime import date, UTC, datetime
 
 
 # =========================
@@ -337,7 +338,90 @@ def test_owner_manager_cannot_get_entretiens_other_company(
     assert response.status_code == 403
 
 
-# TODO: TESTER LE GET DRIVER APRES ASSIGNATION
+def test_driver_can_read_assigned_vehicle_entretiens(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    # Assignation
+    assignment = VehiculeAssignment(
+        vehicule_id=vehicule_db.id,
+        user_id=driver.id,
+    )
+    session.add(assignment)
+
+    # Entretien
+    entretien = Entretien(
+        vehicule_id=vehicule_db.id,
+        type=EntretienType.VIDANGE,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+    )
+    session.add(entretien)
+
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}/entretiens")
+
+    assert res.status_code == 200
+
+    data = res.json()
+
+    assert data["total_count"] == 1
+    assert len(data["items"]) == 1
+
+
+def test_driver_cannot_read_unassigned_vehicle_entretiens(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    # Entretien existant mais PAS d'assignation
+    entretien = Entretien(
+        vehicule_id=vehicule_db.id,
+        type=EntretienType.VIDANGE,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+    )
+    session.add(entretien)
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}/entretiens")
+
+    assert res.status_code == 403
+
+
+def test_driver_cannot_read_after_unassignment(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    assignment = VehiculeAssignment(
+        vehicule_id=vehicule_db.id,
+        user_id=driver.id,
+        end_date=datetime.now(UTC),
+    )
+    session.add(assignment)
+
+    entretien = Entretien(
+        vehicule_id=vehicule_db.id,
+        type=EntretienType.VIDANGE,
+        date=date.today(),
+        km=vehicule_db.km + 100,
+    )
+    session.add(entretien)
+
+    session.commit()
+
+    client = auth_client(driver)
+
+    res = client.get(f"/vehicules/{vehicule_db.id}/entretiens")
+
+    assert res.status_code == 403
 
 
 def test_driver_cannot_get_entretien_without_assignment(
