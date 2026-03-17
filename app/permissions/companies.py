@@ -33,3 +33,10 @@ def can_delete_company(current_user: User) -> bool:
         return True
 
     return False
+
+
+def can_reactivate_company(current_user: User) -> bool:
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return True
+
+    return False

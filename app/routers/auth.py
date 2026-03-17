@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.deps.auth import get_current_user
-from app.models import User
+from app.models import User, Company
 from app.security import verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -26,6 +26,11 @@ def login(
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive account")
+
+    if user.company_id:
+        company = session.get(Company, user.company_id)
+        if not company or not company.is_active:
+            raise HTTPException(403, detail="Company inactive")
 
     access_token = create_access_token(
         data={

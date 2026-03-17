@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import select, Session
 
 from app.database import get_session
-from app.models import User
+from app.models import User, Company
 from app.security import decode_access_token
 from app.enums import UserRole
 
@@ -40,6 +40,12 @@ def get_current_user(
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive account")
+
+    if user.company_id:
+        company = session.get(Company, user.company_id)
+
+        if not company or not company.is_active:
+            raise HTTPException(403, detail="Company inactive")
 
     return user
 
