@@ -62,6 +62,7 @@ def test_get_alerts_vehicule_not_found(auth_client, create_user):
     res = client.get("/vehicules/9999/alerts")
 
     assert res.status_code == 404
+    assert res.json()["detail"] == "Véhicule introuvable"
 
 
 def test_owner_cannot_get_other_company_alerts(auth_client, create_user, vehicule_db):

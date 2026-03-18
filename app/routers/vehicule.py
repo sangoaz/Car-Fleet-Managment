@@ -1,10 +1,12 @@
 """Routes relatives aux véhicules"""
 
 from fastapi import APIRouter, HTTPException, Query, Depends
-from sqlmodel import select, func, Session
 from sqlalchemy import desc
+from sqlmodel import select, func, Session
+
 
 from app.database import get_session
+from app.deps.auth import require_roles, require_admin, get_current_user
 from app.enums import EntretienType, UserRole
 from app.models import Vehicule, Entretien, User, VehiculeAssignment
 from app.permissions.vehicules import (
@@ -14,12 +16,12 @@ from app.permissions.vehicules import (
     can_read_vehicle,
 )
 from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
-from app.services.alerts import get_vehicle_alerts
 from app.services.vehicule_assignment_service import (
     is_driver_assigned,
     get_driver_vehicules,
 )
-from app.deps.auth import require_roles, require_admin, get_current_user
+from app.utils.vehicules import get_vehicule_or_404
+
 
 router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
 
@@ -64,9 +66,8 @@ def get_vehicule(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     is_assigned = False
 
@@ -108,9 +109,8 @@ def patch_vehicule(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    existing_vehicule = session.get(Vehicule, vehicule_id)
-    if not existing_vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    existing_vehicule = get_vehicule_or_404(session, vehicule_id)
+
     if not can_modify_vehicle(current_user, existing_vehicule):
         raise HTTPException(status_code=403, detail="Not allowed")
 
@@ -137,10 +137,7 @@ def delete_vehicule(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    existing_vehicule = session.get(Vehicule, vehicule_id)
-
-    if not existing_vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    existing_vehicule = get_vehicule_or_404(session, vehicule_id)
 
     if not can_delete_vehicle(current_user, existing_vehicule):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -164,9 +161,7 @@ def vehicule_overview(
     current_user: User = Depends(get_current_user),
 ):
 
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Vehicule introuvable")
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérifier si le driver est assigné
     is_assigned = False

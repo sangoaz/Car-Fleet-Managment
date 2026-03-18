@@ -97,6 +97,21 @@ def test_can_reassign_after_unassign(auth_client, create_user, vehicule_db):
     assert second.status_code == 200
 
 
+def test_vehicule_not_found(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    client = auth_client(owner)
+
+    res = client.post(
+        f"/vehicules/9999/assignments/",
+        json={"driver_id": driver.id},
+    )
+
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Véhicule introuvable"
+
+
 # =========================
 # TESTS D'AFFICHAGE DES ASSIGNATIONS
 # =========================
@@ -120,6 +135,26 @@ def test_list_vehicle_assignments(auth_client, create_user, vehicule_db, session
 
     assert res.status_code == 200
     assert len(res.json()) == 1
+
+
+def test_vehicule_list_not_found(auth_client, create_user, vehicule_db, session):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    assignment = VehiculeAssignment(
+        vehicule_id=9999,
+        user_id=driver.id,
+    )
+
+    session.add(assignment)
+    session.commit()
+
+    client = auth_client(owner)
+
+    res = client.get(f"/vehicules/9999/assignments/")
+
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Véhicule introuvable"
 
 
 # =========================
@@ -169,3 +204,26 @@ def test_cannot_unassign_twice(auth_client, create_user, vehicule_db, session):
     res = client.delete(f"/vehicules/{vehicule_db.id}/assignments/{assignment.id}")
 
     assert res.status_code == 400
+
+
+def test_owner_cannot_unassign_vehicule_not_found(
+    auth_client, create_user, vehicule_db, session
+):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    assignment = VehiculeAssignment(
+        vehicule_id=vehicule_db.id,
+        user_id=driver.id,
+    )
+
+    session.add(assignment)
+    session.commit()
+    session.refresh(assignment)
+
+    client = auth_client(owner)
+
+    res = client.delete(f"/vehicules/9999/assignments/{assignment.id}")
+
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Véhicule introuvable"

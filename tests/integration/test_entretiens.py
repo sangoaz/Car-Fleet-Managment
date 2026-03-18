@@ -453,6 +453,7 @@ def test_get_entretiens_vehicle_not_found(auth_client, create_user):
     response = client.get("/vehicules/99999/entretiens")
 
     assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
 
 
 def test_get_entretiens_pagination(auth_client, create_user, vehicule_db, session):
@@ -600,6 +601,7 @@ def test_patch_entretien_vehicle_not_found(auth_client, create_user, entretien_d
     )
 
     assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
 
 
 def test_patch_entretien_not_found(auth_client, create_user, vehicule_db):
@@ -841,6 +843,7 @@ def test_delete_entretien_vehicle_not_found(auth_client, create_user, entretien_
     response = client.delete(f"/vehicules/99999/entretiens/{entretien_db.id}")
 
     assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
 
 
 def test_delete_entretien_not_found(auth_client, create_user, vehicule_db):

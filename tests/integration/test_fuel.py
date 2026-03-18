@@ -109,6 +109,26 @@ def test_driver_cannot_create_fuel_fill_if_not_assigned(
     assert res.status_code == 403
 
 
+def test_create_fuel_fill_vehicule_not_found(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
+
+    payload = {
+        "date": "2026-01-10",
+        "km": vehicule_db.km + 100,
+        "liters": 45.5,
+        "cost": 82.3,
+    }
+
+    response = client.post(
+        f"/vehicules/9999/fuel-fills",
+        json=payload,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
+
+
 # =========================
 # TESTS D'AFFICHAGE
 # =========================
@@ -300,6 +320,40 @@ def test_driver_cannot_access_after_unassignment(
     assert res.status_code == 403
 
 
+def test_cannot_read_fuelfill_history_vehicule_not_found(
+    auth_client, create_user, vehicule_db
+):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
+
+    response = client.get(f"/vehicules/9999/fuel-fills")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
+
+
+def test_cannot_read_fuelfuel_vehicule_not_found(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
+
+    fuel_res = client.post(
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
+        json={
+            "date": "2026-01-05",
+            "km": vehicule_db.km + 300,
+            "liters": 42,
+            "cost": 75,
+        },
+    )
+
+    fuel_id = fuel_res.json()["id"]
+
+    response = client.get(f"/vehicules/9999/fuel-fills/{fuel_id}")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
+
+
 # =========================
 # TESTS D'UPDATE
 # =========================
@@ -383,6 +437,29 @@ def test_driver_cannot_update_fuel_fill(auth_client, create_user, vehicule_db, s
     assert res.status_code == 403
 
 
+def test_patch_last_fuel_fill_vehicule_not_found(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
+
+    fuel = client.post(
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
+        json={
+            "date": "2026-01-10",
+            "km": vehicule_db.km + 200,
+            "liters": 50,
+            "cost": 90,
+        },
+    ).json()
+
+    response = client.patch(
+        f"/vehicules/9999/fuel-fills/{fuel['id']}",
+        json={"cost": 95},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
+
+
 # ==========================
 # TESTS DELETE
 # ==========================
@@ -454,3 +531,25 @@ def test_driver_cannot_delete_fuel_fill(auth_client, create_user, vehicule_db, s
     res = client.delete(f"/vehicules/{vehicule_db.id}/fuel-fills/{fuel.id}")
 
     assert res.status_code == 403
+
+
+def test_delete_last_fuel_fill_vehicule_not_found(
+    auth_client, create_user, vehicule_db
+):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
+
+    fuel = client.post(
+        f"/vehicules/{vehicule_db.id}/fuel-fills",
+        json={
+            "date": "2026-01-10",
+            "km": vehicule_db.km + 200,
+            "liters": 45,
+            "cost": 80,
+        },
+    ).json()
+
+    response = client.delete(f"/vehicules/9999/fuel-fills/{fuel['id']}")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"

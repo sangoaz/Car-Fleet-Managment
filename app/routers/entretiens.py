@@ -6,19 +6,21 @@ from sqlalchemy import desc
 from typing import Optional
 
 from app.database import get_session
-from app.models import Entretien, Vehicule, User
-from app.schemas import Create_entretien, PaginatedEntretiens, Update_entretien
+from app.deps.auth import get_current_user
 from app.enums import EntretienType, UserRole
-from app.services.entretien_validation import validate_entretien_coherence
-from app.services.vehicule_assignment_service import is_driver_assigned
-from app.permissions.vehicules import can_read_vehicle
+from app.models import Entretien, Vehicule, User
 from app.permissions.entretiens import (
     can_create_entretien,
     can_delete_entretien,
     can_modify_entretien,
     can_read_entretien,
 )
-from app.deps.auth import get_current_user
+from app.permissions.vehicules import can_read_vehicle
+from app.schemas import Create_entretien, PaginatedEntretiens, Update_entretien
+from app.services.entretien_validation import validate_entretien_coherence
+from app.services.vehicule_assignment_service import is_driver_assigned
+from app.utils.vehicules import get_vehicule_or_404
+
 
 router = APIRouter(prefix="/vehicules", tags=["entretiens"])
 
@@ -32,9 +34,7 @@ def create_entretien(
     current_user: User = Depends(get_current_user),
 ):
     # Vérifier que le véhicule existe
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérification permissions
     if not can_create_entretien(current_user, vehicule):
@@ -75,9 +75,7 @@ def get_entretiens(
     order: str = Query("date_desc"),
 ):
     # Vérifier que le véhicule existe
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # 🔐 Vérification permissions
     is_assigned = False
@@ -123,9 +121,7 @@ def patch_entretien(
     current_user: User = Depends(get_current_user),
 ):
     # Vérifier véhicule
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(404)
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérifier entretien
     existing_entretien = session.get(Entretien, entretien_id)
@@ -190,9 +186,7 @@ def delete_entretien(
     current_user: User = Depends(get_current_user),  # 🔐 AJOUT
 ):
     # Vérifier véhicule
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérifier entretien
     entretien = session.get(Entretien, entretien_id)

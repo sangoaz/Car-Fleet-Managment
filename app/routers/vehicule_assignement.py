@@ -1,15 +1,18 @@
 """Routes relatives à l'assignation des véhicules"""
 
+from datetime import datetime, UTC
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from datetime import datetime, UTC
+
 
 from app.database import get_session
 from app.deps.auth import get_current_user
-from app.models import Vehicule, User, VehiculeAssignment
-from app.schemas import VehiculeAssignmentCreate, VehiculeAssignmentRead
-from app.permissions.vehicule_assignement import can_assign_vehicle
 from app.enums import UserRole
+from app.models import Vehicule, User, VehiculeAssignment
+from app.permissions.vehicule_assignement import can_assign_vehicle
+from app.schemas import VehiculeAssignmentCreate, VehiculeAssignmentRead
+from app.utils.vehicules import get_vehicule_or_404
+
 
 router = APIRouter(
     prefix="/vehicules/{vehicule_id}/assignments", tags=["vehicule_assignments"]
@@ -25,9 +28,7 @@ def assign_driver(
     current_user: User = Depends(get_current_user),
 ):
 
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     if not can_assign_vehicle(current_user):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -77,6 +78,7 @@ def list_assignments(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     query = select(VehiculeAssignment).where(
         VehiculeAssignment.vehicule_id == vehicule_id
@@ -98,6 +100,7 @@ def remove_assignment(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_user),
 ):
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     if not can_assign_vehicle(current_user):
         raise HTTPException(status_code=403, detail="Not allowed")

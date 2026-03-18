@@ -374,6 +374,7 @@ def test_update_vehicule_not_found(auth_client, create_user):
     )
 
     assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
 
 
 def test_update_vehicule_without_auth_returns_401(client, vehicule_db):
@@ -443,6 +444,7 @@ def test_delete_vehicule_not_found(auth_client, create_user):
     response = client.delete("/vehicules/99999")
 
     assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"
 
 
 def test_delete_vehicule_without_auth_returns_401(client, vehicule_db):

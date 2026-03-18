@@ -51,3 +51,13 @@ def test_get_fuel_stats_with_fuels(auth_client, create_user, vehicule_db):
 
     assert data["total_km"] == 500
     assert data["average_consumption"] == 6.0
+
+
+def test_get_fuel_stats_vehicule_not_found(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    client = auth_client(owner)
+
+    response = client.get(f"/vehicules/9999/fuel-stats")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Véhicule introuvable"

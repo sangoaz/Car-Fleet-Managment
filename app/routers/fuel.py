@@ -2,8 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.database import get_session
+from app.deps.auth import get_current_user
 from app.enums import UserRole
 from app.models import FuelFill, Vehicule, User
+from app.permissions.fuel import (
+    can_create_fuelfill,
+    can_delete_fuelfill,
+    can_modify_fuelfill,
+    can_read_fuelfill,
+)
 from app.schemas import FuelFillCreate, FuelFillRead, FuelFillUpdate, FuelStatsRead
 from app.services.fuel_services import (
     validate_km,
@@ -12,13 +19,8 @@ from app.services.fuel_services import (
 )
 from app.services.fuel_stats import compute_fuel_stats
 from app.services.vehicule_assignment_service import is_driver_assigned
-from app.deps.auth import get_current_user
-from app.permissions.fuel import (
-    can_create_fuelfill,
-    can_delete_fuelfill,
-    can_modify_fuelfill,
-    can_read_fuelfill,
-)
+from app.utils.vehicules import get_vehicule_or_404
+
 
 router = APIRouter(prefix="/vehicules", tags=["Fuel"])
 
@@ -32,9 +34,7 @@ def create_fuel_fill(
     current_user: User = Depends(get_current_user),
 ):
     # Vérifier que le véhicule existe
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérification permissions
     is_assigned = False
@@ -74,9 +74,7 @@ def list_fuel_fills(
     current_user: User = Depends(get_current_user),
 ):
     # Vérifier que le véhicule existe
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404, detail="Véhicule introuvable")
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérification permissions
     is_assigned = False
@@ -105,9 +103,7 @@ def get_fuel_fill(
     current_user: User = Depends(get_current_user),
 ):
     # Vérifier si le véhicule existe
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404)
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     fuel = session.get(FuelFill, fuel_id)
 
@@ -138,9 +134,7 @@ def update_fuel_fill(
     current_user: User = Depends(get_current_user),
 ):
     # Vérifier si le véhicule existe
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404)
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     fuel = session.get(FuelFill, fuel_id)
 
@@ -171,9 +165,7 @@ def delete_fuel_fill(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    vehicule = session.get(Vehicule, vehicule_id)
-    if not vehicule:
-        raise HTTPException(status_code=404)
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     fuel = session.get(FuelFill, fuel_id)
 
@@ -202,10 +194,7 @@ def get_fuel_stats(
     current_user: User = Depends(get_current_user),
 ):
 
-    vehicule = session.get(Vehicule, vehicule_id)
-
-    if not vehicule:
-        raise HTTPException(status_code=404)
+    vehicule = get_vehicule_or_404(session, vehicule_id)
 
     is_assigned = False
 
