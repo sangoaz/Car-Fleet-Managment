@@ -36,14 +36,27 @@ def get_last_known_km(session: Session, vehicule_id: int) -> int | None:
     return vehicule.km if vehicule else None
 
 
-# Valider uniquement les saisies de km croissants
-def validate_km(session: Session, vehicule_id: int, km: int):
+# Valider uniquement les saisies de km croissants + données carburant cohérentes
+def validate_km(
+    session: Session, vehicule_id: int, km: int, liters: float, cost: float
+):
     last_km = get_last_known_km(session, vehicule_id)
 
+    # Validation kilométrage
     if last_km is not None and km <= last_km:
         raise HTTPException(
             status_code=400, detail=f"Kilométrage invalide (dernier connu: {last_km})"
         )
+
+    # Validation litres
+    if liters <= 0:
+        raise HTTPException(
+            status_code=400, detail="Le volume de carburant doit être suppérieur à 0"
+        )
+
+    # Validation coût
+    if cost < 0:
+        raise HTTPException(status_code=400, detail="Le coût ne peut pas être négatif")
 
 
 # =========================

@@ -3,7 +3,6 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.deps.auth import get_current_user
-from app.enums import UserRole
 from app.models import FuelFill, Vehicule, User
 from app.permissions.fuel import (
     can_create_fuelfill,
@@ -42,7 +41,7 @@ def create_fuel_fill(
     if not can_create_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
-    validate_km(session, vehicule_id, fuel.km)
+    validate_km(session, vehicule_id, fuel.km, fuel.liters, fuel.cost)
 
     new_fuel_fill = FuelFill(
         vehicule_id=vehicule_id,
@@ -166,7 +165,7 @@ def delete_fuel_fill(
         )
 
     if not can_delete_fuelfill(current_user, fuel):
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     if not is_last_fuel_fill(session, fuel):
         raise HTTPException(

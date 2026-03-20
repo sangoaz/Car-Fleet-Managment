@@ -83,28 +83,32 @@ def get_entretiens(
     if not can_read_vehicle(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
-    # total count
+    # 🔢 Total count
     total_stmt = select(func.count()).where(Entretien.vehicule_id == vehicule_id)
 
-    if entretien_type:
+    if entretien_type is not None:
         total_stmt = total_stmt.where(Entretien.type == entretien_type)
 
     total_count = session.exec(total_stmt).one()
 
-    # Requête paginée
+    # 📄 Requête paginée
     stmt = select(Entretien).where(Entretien.vehicule_id == vehicule_id)
 
-    if entretien_type:
+    if entretien_type is not None:
         stmt = stmt.where(Entretien.type == entretien_type)
 
+    # 🔃 Tri sécurisé
     if order == "date_asc":
         stmt = stmt.order_by(Entretien.date)
-    else:
+    elif order == "date_desc":
         stmt = stmt.order_by(desc(Entretien.date))
+    else:
+        raise HTTPException(status_code=400, detail="Invalid order parameter")
 
     stmt = stmt.offset(offset).limit(limit)
 
-    items = session.scalars(stmt).all()
+    # 📦 Exécution
+    items = session.exec(stmt).all()
 
     return {"total_count": total_count, "items": items}
 
@@ -141,7 +145,7 @@ def patch_entretien(
         entretien.type if entretien.type is not None else existing_entretien.type
     )
 
-    if final_km <= 0:
+    if final_km is None or final_km <= 0:
         raise HTTPException(status_code=400, detail="Kilométrage invalide")
 
     # 🔍 Validation métier
