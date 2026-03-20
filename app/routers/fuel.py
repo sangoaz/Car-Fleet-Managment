@@ -19,7 +19,7 @@ from app.services.fuel_services import (
 )
 from app.services.fuel_stats import compute_fuel_stats
 from app.services.vehicule_assignment_service import is_driver_assigned
-from app.utils.vehicules import get_vehicule_or_404
+from app.utils.vehicules import get_vehicule_or_404, get_driver_assignment_flag
 
 
 router = APIRouter(prefix="/vehicules", tags=["Fuel"])
@@ -37,10 +37,7 @@ def create_fuel_fill(
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérification permissions
-    is_assigned = False
-
-    if current_user.role == UserRole.DRIVER:
-        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
 
     if not can_create_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -77,10 +74,7 @@ def list_fuel_fills(
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérification permissions
-    is_assigned = False
-
-    if current_user.role == UserRole.DRIVER:
-        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
 
     if not can_read_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -113,10 +107,7 @@ def get_fuel_fill(
         )
 
     # Vérification permissions
-    is_assigned = False
-
-    if current_user.role == UserRole.DRIVER:
-        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
 
     if not can_read_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -196,10 +187,7 @@ def get_fuel_stats(
 
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
-    is_assigned = False
-
-    if current_user.role == UserRole.DRIVER:
-        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
 
     if not can_read_fuelfill(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403)

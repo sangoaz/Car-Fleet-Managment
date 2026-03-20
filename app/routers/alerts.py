@@ -14,7 +14,7 @@ from app.services.alerts.freins import check_freins_alert
 from app.services.alerts.revision import check_revision_alert
 from app.services.alerts.controle_technique import check_controle_technique_alert
 from app.services.alerts.fuel import compute_fuel_alerts
-from app.utils.vehicules import get_vehicule_or_404
+from app.utils.vehicules import get_vehicule_or_404, get_driver_assignment_flag
 
 router = APIRouter(
     prefix="/vehicules",
@@ -30,7 +30,9 @@ def get_vehicule_alerts(
 ):
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
-    if not can_read_vehicle(current_user, vehicule):
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
+
+    if not can_read_vehicle(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
 
     alerts = []

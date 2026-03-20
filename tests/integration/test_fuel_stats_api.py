@@ -1,4 +1,5 @@
 from app.enums import UserRole
+from app.models import VehiculeAssignment
 
 
 # Vérifier l'accessibilité de la route
@@ -16,6 +17,51 @@ def test_get_fuel_stats_ok(auth_client, create_user, vehicule_db):
     assert "average_consumption" in data
     assert "rolling_consumption" in data
     assert "cost_per_km" in data
+
+
+def test_get_fuel_stats_assigned_driver(auth_client, create_user, vehicule_db, session):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    session.add(
+        VehiculeAssignment(
+            vehicule_id=vehicule_db.id,
+            user_id=driver.id,
+        )
+    )
+    session.commit()
+
+    client = auth_client(driver)
+
+    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-stats")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "total_km" in data
+    assert "average_consumption" in data
+    assert "rolling_consumption" in data
+    assert "cost_per_km" in data
+
+
+def test_get_fuel_stats_non_assigned_driver(
+    auth_client, create_user, vehicule_db, session
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    session.add(
+        VehiculeAssignment(
+            vehicule_id=vehicule_db.id,
+            user_id=999,
+        )
+    )
+    session.commit()
+
+    client = auth_client(driver)
+
+    response = client.get(f"/vehicules/{vehicule_db.id}/fuel-stats")
+
+    assert response.status_code == 403
 
 
 # Test stats cohérentes avec des pleins

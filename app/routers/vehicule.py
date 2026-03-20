@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy import desc
 from sqlmodel import select, func, Session
+from typing import List
 
 
 from app.database import get_session
@@ -15,19 +16,24 @@ from app.permissions.vehicules import (
     can_modify_vehicle,
     can_read_vehicle,
 )
-from app.schemas import Create_vehicule, Update_vehicule, VehiculeOverviewResponse
+from app.schemas import (
+    Create_vehicule,
+    Update_vehicule,
+    VehiculeRead,
+    VehiculeOverviewResponse,
+)
 from app.services.vehicule_assignment_service import (
     is_driver_assigned,
     get_driver_vehicules,
 )
-from app.utils.vehicules import get_vehicule_or_404
+from app.utils.vehicules import get_vehicule_or_404, get_driver_assignment_flag
 
 
 router = APIRouter(prefix="/vehicules", tags=["Vehicules"])
 
 
 # Enregistrer un nouveau véhicule
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, response_model=VehiculeRead)
 def create_vehicule(
     vehicule: Create_vehicule,
     session: Session = Depends(get_session),
@@ -35,6 +41,8 @@ def create_vehicule(
 ):
     # SUPER_ADMIN peut choisir la company
     if current_user.role == UserRole.SUPER_ADMIN:
+        if not vehicule.company_id:
+            raise HTTPException(status_code=400, detail="company_id is required")
         target_company_id = vehicule.company_id
     else:
         # OWNER / MANAGER / DRIVER → forcé à sa company
@@ -60,7 +68,7 @@ def create_vehicule(
 
 
 # Afficher un véhicule
-@router.get("/{vehicule_id}")
+@router.get("/{vehicule_id}", response_model=VehiculeRead)
 def get_vehicule(
     vehicule_id: int,
     session: Session = Depends(get_session),
@@ -69,10 +77,7 @@ def get_vehicule(
 
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
-    is_assigned = False
-
-    if current_user.role == UserRole.DRIVER:
-        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
 
     if not can_read_vehicle(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -81,7 +86,7 @@ def get_vehicule(
 
 
 # Afficher la liste des véhicules
-@router.get("/")
+@router.get("/", response_model=List[VehiculeRead])
 def get_vehicules_list(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -102,7 +107,7 @@ def get_vehicules_list(
 
 
 # Mettre à jour un véhicule
-@router.patch("/{vehicule_id}")
+@router.patch("/{vehicule_id}", response_model=VehiculeRead)
 def patch_vehicule(
     vehicule_id: int,
     vehicule: Update_vehicule,
@@ -164,10 +169,7 @@ def vehicule_overview(
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # Vérifier si le driver est assigné
-    is_assigned = False
-
-    if current_user.role == UserRole.DRIVER:
-        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
 
     if not can_read_vehicle(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")

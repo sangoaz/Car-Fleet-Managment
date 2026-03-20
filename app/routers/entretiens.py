@@ -19,7 +19,7 @@ from app.permissions.vehicules import can_read_vehicle
 from app.schemas import Create_entretien, PaginatedEntretiens, Update_entretien
 from app.services.entretien_validation import validate_entretien_coherence
 from app.services.vehicule_assignment_service import is_driver_assigned
-from app.utils.vehicules import get_vehicule_or_404
+from app.utils.vehicules import get_vehicule_or_404, get_driver_assignment_flag
 
 
 router = APIRouter(prefix="/vehicules", tags=["entretiens"])
@@ -78,10 +78,7 @@ def get_entretiens(
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
     # 🔐 Vérification permissions
-    is_assigned = False
-
-    if current_user.role == UserRole.DRIVER:
-        is_assigned = is_driver_assigned(session, current_user.id, vehicule_id)
+    is_assigned = get_driver_assignment_flag(session, current_user, vehicule_id)
 
     if not can_read_vehicle(current_user, vehicule, is_assigned):
         raise HTTPException(status_code=403, detail="Not allowed")

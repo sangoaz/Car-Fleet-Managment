@@ -1,4 +1,5 @@
 from app.enums import UserRole
+from app.models import VehiculeAssignment
 
 
 def test_get_vehicule_alerts(auth_client, create_user, vehicule_db):
@@ -52,7 +53,39 @@ def test_driver_cannot_get_vehicule_alerts(auth_client, create_user, vehicule_db
     assert res.status_code == 403
 
 
-# test_driver_can_get_assigned_vehicule_alerts
+def test_get_alerts_driver_not_assigned_forbidden(
+    auth_client, create_user, vehicule_db
+):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+    client = auth_client(driver)
+
+    response = client.get(f"/vehicules/{vehicule_db.id}/alerts")
+
+    assert response.status_code == 403
+
+
+def test_get_alerts_driver_assigned_ok(auth_client, create_user, vehicule_db, session):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    # assignation du driver
+    session.add(
+        VehiculeAssignment(
+            vehicule_id=vehicule_db.id,
+            user_id=driver.id,
+        )
+    )
+    session.commit()
+
+    client = auth_client(driver)
+
+    response = client.get(f"/vehicules/{vehicule_db.id}/alerts")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["vehicule_id"] == vehicule_db.id
+    assert isinstance(data["alerts"], list)
 
 
 def test_get_alerts_vehicule_not_found(auth_client, create_user):

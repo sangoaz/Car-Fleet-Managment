@@ -36,6 +36,7 @@ class VehiculeRead(BaseModel):
     plate: str
     model: str
     km: int
+    company_id: int
 
     model_config = ConfigDict(from_attributes=True)
 
