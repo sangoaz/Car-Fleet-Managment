@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from app.models import UserRole
+from app.enums import UserRole
 from app.models import VehiculeAssignment
 from app.utils.vehicules import get_vehicule_or_404, get_driver_assignment_flag
 

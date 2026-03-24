@@ -180,12 +180,15 @@ class FuelStatsRead(BaseModel):
 # =========================
 # ENTREPRISES
 # =========================
-class CreateCompany(BaseModel):
+class CompanyCreate(BaseModel):
     name: str
 
 
-class GetCompany(BaseModel):
+class CompanyRead(BaseModel):
+    id: int
     name: str
+    is_active: bool
+    created_at: datetime
 
 
 # =========================
