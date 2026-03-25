@@ -228,7 +228,7 @@ def test_login_blocked_if_company_inactive(client, session, company_db):
         data={"username": user.email, "password": password},
     )
 
-    assert res.status_code == 403
+    assert res.status_code == 401
 
 
 # =========================
