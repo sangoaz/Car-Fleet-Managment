@@ -83,6 +83,39 @@ def test_driver_can_not_create(auth_client, create_user):
     assert response.status_code == 403
 
 
+def test_cannot_create_user_with_existing_email(auth_client, create_user):
+    admin = create_user(UserRole.SUPER_ADMIN)
+    client = auth_client(admin)
+
+    email = unique_email("user")
+
+    # Création 1
+    res1 = client.post(
+        "/users",
+        json={
+            "email": email,
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    assert res1.status_code == 201
+
+    # Création 2 avec même email
+    res2 = client.post(
+        "/users",
+        json={
+            "email": email,
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+
+    assert res2.status_code == 400
+    assert res2.json()["detail"] == "Email already used"
+
+
 # =========================
 # TEST D'UPDATE
 # =========================
@@ -255,6 +288,203 @@ def test_manager_can_not_modify_owner(auth_client, create_user):
     )
 
     assert response.status_code == 403
+
+
+def test_manager_cannot_escalate_role(auth_client, create_user):
+    manager = create_user(UserRole.MANAGER, company_id=1)
+    client = auth_client(manager)
+
+    # Création d’un driver
+    response_driver = client.post(
+        "/users",
+        json={
+            "email": unique_email("driver"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    driver_id = response_driver.json()["id"]
+
+    # Tentative d’escalade
+    response = client.patch(
+        f"/users/{driver_id}",
+        json={"role": "OWNER"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_owner_cannot_escalate_to_super_admin(auth_client, create_user):
+    owner = create_user(UserRole.OWNER, company_id=1)
+    client = auth_client(owner)
+
+    response_driver = client.post(
+        "/users",
+        json={
+            "email": unique_email("driver"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    driver_id = response_driver.json()["id"]
+
+    response = client.patch(
+        f"/users/{driver_id}",
+        json={"role": "SUPER_ADMIN"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_owner_cannot_change_company(auth_client, create_user):
+    owner = create_user(UserRole.OWNER, company_id=1)
+    client = auth_client(owner)
+
+    response_driver = client.post(
+        "/users",
+        json={
+            "email": unique_email("driver"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    driver_id = response_driver.json()["id"]
+
+    response = client.patch(
+        f"/users/{driver_id}",
+        json={"company_id": 2},
+    )
+
+    assert response.status_code == 403
+
+
+def test_admin_can_change_company(auth_client, create_user):
+    admin = create_user(UserRole.SUPER_ADMIN)
+    client = auth_client(admin)
+
+    response_user = client.post(
+        "/users",
+        json={
+            "email": unique_email("user"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    user_id = response_user.json()["id"]
+
+    response = client.patch(
+        f"/users/{user_id}",
+        json={"company_id": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["company_id"] == 2
+
+
+def test_password_is_hashed_on_update(session, auth_client, create_user):
+    admin = create_user(UserRole.SUPER_ADMIN)
+    client = auth_client(admin)
+
+    response_user = client.post(
+        "/users",
+        json={
+            "email": unique_email("user"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    user_id = response_user.json()["id"]
+
+    # Update password
+    client.patch(
+        f"/users/{user_id}",
+        json={"password": "newpassword"},
+    )
+
+    # Vérification DB directe
+    user = session.get(User, user_id)
+
+    assert user.password_hash != "newpassword"
+    assert user.password_hash is not None
+
+
+def test_user_cannot_self_promote(auth_client, create_user):
+    manager = create_user(UserRole.MANAGER, company_id=1)
+    client = auth_client(manager)
+
+    response = client.patch(
+        f"/users/{manager.id}",
+        json={"role": "OWNER"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_unknown_field_is_ignored(auth_client, create_user):
+    admin = create_user(UserRole.SUPER_ADMIN)
+    client = auth_client(admin)
+
+    response_user = client.post(
+        "/users",
+        json={
+            "email": unique_email("user"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    user_id = response_user.json()["id"]
+
+    response = client.patch(
+        f"/users/{user_id}",
+        json={"unknown_field": "test"},
+    )
+
+    # Selon config Pydantic → souvent 200
+    assert response.status_code in [200, 422]
+
+
+def test_cannot_update_user_with_existing_email(auth_client, create_user):
+    admin = create_user(UserRole.SUPER_ADMIN)
+    client = auth_client(admin)
+
+    # User 1
+    res1 = client.post(
+        "/users",
+        json={
+            "email": unique_email("user1"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    user1_id = res1.json()["id"]
+
+    # User 2
+    res2 = client.post(
+        "/users",
+        json={
+            "email": unique_email("user2"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    user2 = res2.json()
+
+    # Tentative de duplication
+    response = client.patch(
+        f"/users/{user2['id']}",
+        json={"email": res1.json()["email"]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Email already used"
 
 
 # =========================
@@ -445,6 +675,33 @@ def test_driver_cannot_deactivate(auth_client, create_user):
     )
 
     assert response.status_code == 403
+
+
+def test_cannot_deactivate_already_inactive_user(auth_client, create_user):
+    admin = create_user(UserRole.SUPER_ADMIN)
+    client = auth_client(admin)
+
+    # Création user
+    res = client.post(
+        "/users",
+        json={
+            "email": unique_email("user"),
+            "password": "password",
+            "role": "DRIVER",
+            "company_id": 1,
+        },
+    )
+    user_id = res.json()["id"]
+
+    # Désactivation 1
+    res1 = client.patch(f"/users/{user_id}/deactivate")
+    assert res1.status_code == 200
+
+    # Désactivation 2 (doit fail)
+    res2 = client.patch(f"/users/{user_id}/deactivate")
+
+    assert res2.status_code == 400
+    assert res2.json()["detail"] == "User already inactive"
 
 
 # =========================

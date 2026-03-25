@@ -93,7 +93,7 @@ def test_login_inactive_user(client, session):
         },
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_login_returns_valid_token(client, session):

@@ -212,7 +212,9 @@ class UserRead(BaseModel):
 
 class UserUpdate(BaseModel):
     email: str | None = None
+    password: str | None = None
     role: UserRole | None = None
+    company_id: int | None = None
 
 
 # =========================

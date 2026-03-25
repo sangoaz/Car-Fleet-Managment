@@ -5,11 +5,9 @@ from sqlmodel import select, func, Session
 from sqlalchemy import desc
 
 from app.database import get_session
+from app.deps.auth import require_roles, require_admin
 from app.enums import UserRole
 from app.models import User
-from app.schemas import UserCreate, UserRead, UserUpdate
-from app.deps.auth import require_roles, require_admin
-from app.security import hash_password
 from app.permissions.users import (
     can_create_user,
     can_deactivate_user,
@@ -17,6 +15,9 @@ from app.permissions.users import (
     can_modify_user,
     can_reactivate_user,
 )
+from app.schemas import UserCreate, UserRead, UserUpdate
+from app.security import hash_password
+from app.utils.users import get_user_or_404
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -45,6 +46,11 @@ def create_user(
         role=user_in.role,
         company_id=user_in.company_id,
     )
+
+    existing = session.exec(select(User).where(User.email == user_in.email)).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already used")
 
     session.add(user)
     session.commit()
@@ -82,17 +88,38 @@ def update_user(
         require_roles(UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.MANAGER)
     ),
 ):
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = get_user_or_404(session, user_id)
 
     if not can_modify_user(current_user, user):
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Not allowed")
 
-    update_data = user_in.model_dump(exclude_unset=True)
+    # 🔐 ROLE
+    if getattr(user_in, "role", None) is not None:
+        if not can_create_user(current_user, user_in.role):
+            raise HTTPException(status_code=403, detail="Role change not allowed")
+        user.role = user_in.role
 
-    for key, value in update_data.items():
-        setattr(user, key, value)
+    if user.id == current_user.id and getattr(user_in, "role", None) is not None:
+        raise HTTPException(status_code=403, detail="Cannot change your own role")
+
+    # 🔐 COMPANY
+    if getattr(user_in, "company_id", None) is not None:
+        if current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(status_code=403, detail="Company change not allowed")
+        user.company_id = user_in.company_id
+
+    # 🔐 PASSWORD
+    if getattr(user_in, "password", None) is not None:
+        user.password_hash = hash_password(user_in.password)
+
+    # 🔐 EMAIL
+    if getattr(user_in, "email", None) is not None:
+        existing = session.exec(select(User).where(User.email == user_in.email)).first()
+
+        if existing and existing.id != user.id:
+            raise HTTPException(status_code=400, detail="Email already used")
+
+        user.email = user_in.email
 
     session.commit()
     session.refresh(user)
@@ -107,12 +134,10 @@ def delete_user(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = get_user_or_404(session, user_id)
 
     if not can_delete_user(current_user, user):
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     session.delete(user)
     session.commit()
@@ -125,12 +150,13 @@ def deactivate_user(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.OWNER)),
 ):
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = get_user_or_404(session, user_id)
+
+    if not user.is_active:
+        raise HTTPException(400, "User already inactive")
 
     if not can_deactivate_user(current_user, user):
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     user.is_active = False
 
@@ -147,15 +173,13 @@ def reactivate_user(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.OWNER)),
 ):
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = get_user_or_404(session, user_id)
 
     if user.is_active:
         raise HTTPException(status_code=400, detail="User already active")
 
     if not can_reactivate_user(current_user, user):
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Not allowed")
 
     user.is_active = True
 
