@@ -27,6 +27,25 @@ def test_owner_can_assign_driver(auth_client, create_user, vehicule_db):
     assert data["user_id"] == driver.id
 
 
+def test_manager_can_assign_driver(auth_client, create_user, vehicule_db):
+    manager = create_user(UserRole.MANAGER, company_id=vehicule_db.company_id)
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    client = auth_client(manager)
+
+    res = client.post(
+        f"/vehicules/{vehicule_db.id}/assignments/",
+        json={"driver_id": driver.id},
+    )
+
+    assert res.status_code == 200
+
+    data = res.json()
+
+    assert data["vehicule_id"] == vehicule_db.id
+    assert data["user_id"] == driver.id
+
+
 def test_driver_cannot_assign_vehicle(auth_client, create_user, vehicule_db):
     driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
 
@@ -112,6 +131,26 @@ def test_vehicule_not_found(auth_client, create_user, vehicule_db):
     assert res.json()["detail"] == "Véhicule introuvable"
 
 
+def test_assign_driver_vehicle_already_assigned(auth_client, create_user, vehicule_db):
+    owner = create_user(UserRole.OWNER, company_id=vehicule_db.company_id)
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    client = auth_client(owner)
+
+    # Première assignation
+    first = client.post(
+        f"/vehicules/{vehicule_db.id}/assignments/",
+        json={"driver_id": driver.id},
+    )
+
+    # Deuxième assignation
+    second = client.post(
+        f"/vehicules/{vehicule_db.id}/assignments/", json={"driver_id": driver.id}
+    )
+
+    assert second.status_code == 400
+
+
 # =========================
 # TESTS D'AFFICHAGE DES ASSIGNATIONS
 # =========================
@@ -155,6 +194,19 @@ def test_vehicule_list_not_found(auth_client, create_user, vehicule_db, session)
 
     assert res.status_code == 404
     assert res.json()["detail"] == "Véhicule introuvable"
+
+
+def test_list_assignments_cross_company_forbidden(
+    auth_client, create_user, vehicule_db
+):
+    # owner dans une autre company
+    owner = create_user(UserRole.OWNER, company_id=999)
+
+    client = auth_client(owner)
+
+    response = client.get(f"/vehicules/{vehicule_db.id}/assignments/")
+
+    assert response.status_code == 403
 
 
 # =========================
@@ -227,3 +279,21 @@ def test_owner_cannot_unassign_vehicule_not_found(
 
     assert res.status_code == 404
     assert res.json()["detail"] == "Véhicule introuvable"
+
+
+def test_unassign_forbidden_for_driver(session, create_user, auth_client, vehicule_db):
+    driver = create_user(UserRole.DRIVER, company_id=vehicule_db.company_id)
+
+    assignment = VehiculeAssignment(
+        vehicule_id=vehicule_db.id,
+        user_id=driver.id,
+    )
+
+    session.add(assignment)
+    session.commit()
+
+    client = auth_client(driver)
+
+    response = client.delete(f"/vehicules/{vehicule_db.id}/assignments/{assignment.id}")
+
+    assert response.status_code == 403

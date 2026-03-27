@@ -9,3 +9,16 @@ def can_assign_vehicle(current_user: User) -> bool:
     if current_user.role in [UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.MANAGER]:
         return True
     return False
+
+
+def can_view_assignments(user):
+    return user.role in [
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.MANAGER,
+        UserRole.DRIVER,
+    ]
+
+
+def can_unassign_vehicle(user):
+    return user.role in [UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.MANAGER]

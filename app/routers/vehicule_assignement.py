@@ -1,18 +1,26 @@
 """Routes relatives à l'assignation des véhicules"""
 
 from datetime import datetime, UTC
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 
 from app.database import get_session
 from app.deps.auth import get_current_user
 from app.enums import UserRole
-from app.models import Vehicule, User, VehiculeAssignment
-from app.permissions.vehicule_assignement import can_assign_vehicle
+from app.models import User, VehiculeAssignment
+from app.permissions.vehicule_assignement import (
+    can_assign_vehicle,
+    can_view_assignments,
+    can_unassign_vehicle,
+)
 from app.schemas import VehiculeAssignmentCreate, VehiculeAssignmentRead
 from app.utils.vehicules import get_vehicule_or_404
-
+from app.utils.vehicule_assignment import (
+    check_same_company,
+    check_vehicle_access,
+    ensure_driver,
+)
 
 router = APIRouter(
     prefix="/vehicules/{vehicule_id}/assignments", tags=["vehicule_assignments"]
@@ -33,19 +41,14 @@ def assign_driver(
     if not can_assign_vehicle(current_user):
         raise HTTPException(status_code=403, detail="Not allowed")
 
+    check_vehicle_access(current_user, vehicule)
+
     driver = session.get(User, assignment.driver_id)
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    if driver.role != UserRole.DRIVER:
-        raise HTTPException(
-            status_code=400, detail="Vehicle can only be assigned to a driver"
-        )
-
-    if driver.company_id != vehicule.company_id:
-        raise HTTPException(
-            status_code=403, detail="Driver must belong to same company"
-        )
+    ensure_driver(driver)
+    check_same_company(driver, vehicule)
 
     # Vérifie uniquement les assignations actives
     existing_assignment = session.exec(
@@ -80,6 +83,11 @@ def list_assignments(
 ):
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
+    if not can_view_assignments(current_user):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    check_vehicle_access(current_user, vehicule)
+
     query = select(VehiculeAssignment).where(
         VehiculeAssignment.vehicule_id == vehicule_id
     )
@@ -98,12 +106,14 @@ def remove_assignment(
     vehicule_id: int,
     assignment_id: int,
     session: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     vehicule = get_vehicule_or_404(session, vehicule_id)
 
     if not can_assign_vehicle(current_user):
         raise HTTPException(status_code=403, detail="Not allowed")
+
+    check_vehicle_access(current_user, vehicule)
 
     assignment = session.get(VehiculeAssignment, assignment_id)
 
