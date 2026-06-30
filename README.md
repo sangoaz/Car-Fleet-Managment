@@ -1,96 +1,141 @@
 # Car Fleet Management
 
-Car Fleet Management est une API backend développée avec [FastAPI](https://fastapi.tiangolo.com/) pour la gestion de flotte automobile. Ce projet permet de suivre les véhicules, leurs entretiens, les pleins de carburant et de générer des alertes automatiques selon le kilométrage ou les échéances.
+Car Fleet Management est une API backend développée avec [FastAPI](https://fastapi.tiangolo.com/) pour la gestion de flotte automobile. Le projet permet de suivre les véhicules, leurs entretiens, les pleins de carburant, et de générer des alertes automatiques selon le kilométrage ou les échéances — avec une gestion **multi-entreprises** et un système de **rôles utilisateurs**.
 
-## 🚗 Description
+## Description
 
-L’API centralise la gestion des véhicules d’une flotte : création, modification, suppression, consultation, suivi détaillé des entretiens (vidange, pneus, freins, révision, contrôle technique) et des pleins de carburant. Des alertes sont générées automatiquement pour anticiper les opérations de maintenance.
+L'API centralise la gestion des véhicules d'une flotte : création, modification, suppression, consultation, suivi détaillé des entretiens (vidange, pneus, freins, révision, contrôle technique) et des pleins de carburant. Des alertes sont générées automatiquement pour anticiper les opérations de maintenance.
 
-## 🧠 Philosophie métier
+Le projet gère plusieurs **entreprises isolées entre elles** (multi-tenant) : chaque entreprise dispose de sa propre flotte, de ses propres utilisateurs et de ses propres données, sans visibilité croisée. Un système de **rôles** (administrateur, gestionnaire...) permet de définir précisément qui peut consulter, créer ou modifier quoi au sein de chaque entreprise.
 
-L’API est conçue autour de règles métier explicites :
+## Philosophie métier
+
+L'API est conçue autour de règles métier explicites :
 
 - le kilométrage est une donnée critique et strictement croissante
 - les alertes sont calculées dynamiquement à partir des usages réels
 - les opérations de maintenance sont anticipées, pas seulement constatées
+- les données de chaque entreprise restent strictement isolées de celles des autres
+- les droits d'action dépendent du rôle de l'utilisateur, vérifiés à chaque opération sensible
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
 - CRUD véhicules (création, lecture, modification, suppression)
-- Gestion des entretiens : vidange, pneus, freins, révision, contrôle technique
-- Suivi des pleins de carburant (date, km, litres, coût)
-- Calculs et alertes automatiques selon le kilométrage ou la date
-- Pagination et filtres sur les historiques d’entretiens
-- Architecture modulaire (routers, services, alerts)
-- Moteur d’alertes métier basé sur des règles km / date
-- Endpoint dédié pour consulter l’état des alertes par véhicule
+- Gestion multi-entreprises : chaque entreprise gère sa propre flotte et ses utilisateurs, de manière isolée
+- Système de rôles et permissions : contrôle d'accès fin par ressource (véhicules, entretiens, carburant, utilisateurs, affectations) selon le rôle de l'utilisateur
+- Affectation de véhicules à des utilisateurs
+- Gestion des entretiens : vidange, pneus, freins, révision, contrôle technique
+- Suivi des pleins de carburant (date, km, litres, coût) et statistiques associées
+- Calculs et alertes automatiques selon le kilométrage ou la date, avec un moteur d'alertes dédié par type d'entretien
+- Authentification sécurisée
+- Pagination et filtres sur les historiques d'entretiens
+- Architecture modulaire (routers, services, permissions, alertes)
 
-## 🛠️ Stack technique
+## Qualité et tests
+
+Le projet est couvert par une suite de tests automatisés (Pytest), avec une **couverture de code de 96%** sur l'ensemble du projet, vérifiée via `pytest-cov`. La majorité des modules métier (modèles, routers, permissions, services d'alertes) atteignent 90 à 100% de couverture.
+
+```bash
+pytest --cov=app tests/
+```
+
+## Stack technique
 
 - Python 3.11+
 - FastAPI
 - SQLModel / SQLAlchemy
 - PostgreSQL (ou SQLite pour les tests)
 - Pydantic
+- Pytest / pytest-cov pour les tests et la mesure de couverture
 
-## 🚀 Installation
+## Installation
 
 1. **Cloner le dépôt**
 
-   ```sh
+   ```bash
    git clone <votre-url-repo>
-   cd Car\ Fleet\ Managment\ FastAPI
+   cd Car-Fleet-Managment
    ```
 
 2. **Créer un environnement virtuel**
 
-   ```sh
+   ```bash
    python -m venv venv
    source venv/bin/activate
    ```
 
 3. **Installer les dépendances**
 
-   ```sh
+   ```bash
    pip install -r requirements.txt
    ```
 
 4. **Configurer la base de données**
-   - Copier `.env.example` en `.env` et renseigner `DATABASE_URL` (ex : `postgresql://user:password@localhost/dbname`).
 
-## 🏁 Lancement de l’API
+   Copier `.env.example` en `.env` et renseigner `DATABASE_URL` (ex : `postgresql://user:password@localhost/dbname`).
 
-```sh
+## Lancement de l'API
+
+```bash
 uvicorn app.main:app --reload
 ```
 
-L’API sera disponible sur [http://localhost:8000](http://localhost:8000)  
+L'API est disponible sur `http://localhost:8000`.
 La documentation interactive est accessible sur `/docs`.
 
-## 🗂️ Structure du projet
+## Lancer les tests
+
+```bash
+# Lancer la suite de tests
+pytest
+
+# Avec mesure de couverture
+pytest --cov=app tests/
+
+# Rapport détaillé (lignes non couvertes)
+pytest --cov=app --cov-report=term-missing tests/
+```
+
+## Structure du projet
 
 ```
 app/
- ├── app/main.py           # Point d'entrée FastAPI
- ├── app/models.py         # Modèles SQLModel (Vehicule, Entretien, etc.)
- ├── app/schemas.py        # Schémas Pydantic (entrée/sortie API)
- ├── app/database.py       # Connexion et session DB
- ├── app/enums.py          # Types d'entretiens (Enum)
- ├── routers/              # Routes API (véhicules, entretiens, alertes)
- ├── services/             # Logique métier (alertes, validation)
-tests/                     # Tests unitaires et d'intégration
+  main.py                    # Point d'entrée FastAPI
+  models.py                  # Modèles SQLModel (Véhicule, Entretien, Entreprise, Utilisateur, etc.)
+  schemas.py                 # Schémas Pydantic (entrée/sortie API)
+  database.py                 # Connexion et session DB
+  enums.py                    # Types d'entretiens (Enum)
+  security.py                 # Sécurité (hashage, tokens)
+  deps/
+    auth.py                    # Dépendances d'authentification
+  permissions/                 # Contrôle d'accès par ressource et par rôle
+    companies.py
+    entretiens.py
+    fuel.py
+    users.py
+    vehicule_assignement.py
+    vehicules.py
+  routers/                     # Routes API (véhicules, entretiens, carburant, utilisateurs, entreprises, affectations, alertes)
+  services/
+    alerts/                     # Moteur d'alertes, un module dédié par type d'entretien
+    entretien_validation.py
+    fuel_services.py
+    fuel_stats.py
+    vehicule_assignment_service.py
+  utils/                        # Fonctions utilitaires par domaine
+tests/                          # Tests unitaires et d'intégration (couverture 96%)
 ```
 
-## 🔮 Extensions futures possibles
+## Extensions futures possibles
 
 - Suivi kilométrique fiable basé sur les pleins et entretiens
-- Authentification et gestion des utilisateurs
 - Gestion des incidents et réparations
 - Export des données (CSV, PDF)
-- Statistiques avancées (coûts, consommation, alertes)
+- Statistiques avancées (coûts, consommation, alertes) à l'échelle d'une entreprise
 - Interface web ou mobile dédiée
+- Les entretiens sont actuellement exposés uniquement dans le contexte véhicule
 
 ---
 
-**Auteur** : [Sangoaz]  
+**Auteur** : Kévin Fruchon (sangoaz)
 **Licence** : MIT
