@@ -72,7 +72,14 @@ pytest --cov=app tests/
 
 4. **Configurer la base de données**
 
-   Copier `.env.example` en `.env` et renseigner `DATABASE_URL` (ex : `postgresql://user:password@localhost/dbname`).
+   Créer un fichier `.env` à la racine du projet :
+
+   ```
+   DATABASE_URL=postgresql://user:password@localhost/dbname
+   SECRET_KEY=votre-clé-secrète
+   ALGORITHM=HS256
+   ACCESS_TOKEN_EXPIRE_MINUTES=30
+   ```
 
 ## Lancement de l'API
 
