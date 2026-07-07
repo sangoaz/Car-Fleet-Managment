@@ -8,6 +8,12 @@ L'API centralise la gestion des véhicules d'une flotte : création, modificatio
 
 Le projet gère plusieurs **entreprises isolées entre elles** (multi-tenant) : chaque entreprise dispose de sa propre flotte, de ses propres utilisateurs et de ses propres données, sans visibilité croisée. Un système de **rôles** (administrateur, gestionnaire...) permet de définir précisément qui peut consulter, créer ou modifier quoi au sein de chaque entreprise.
 
+## Aperçu
+
+<p align="center">
+  <img src="images/swagger_overview.png" width="900" alt="Documentation Swagger de l'API">
+</p>
+
 ## Philosophie métier
 
 L'API est conçue autour de règles métier explicites :
